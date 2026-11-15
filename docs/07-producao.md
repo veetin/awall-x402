@@ -27,6 +27,41 @@ API cai. Mitigação: duas réplicas sem estado compartilhado de bucket (ver
 Quando escolher: time pequeno, tráfego moderado, ou quando as rotas medidas
 importam. É o modo do MVP e da demo.
 
+**Com nginx, este modo funciona sem configuração especial.** O `402` é uma
+resposta de upstream como qualquer outra: passa inteira, com corpo e com o header
+`PAYMENT-REQUIRED`, porque `proxy_intercept_errors` é `off` por padrão e o nginx
+só esconde um punhado de headers de resposta (`Date`, `Server`, `X-Accel-*`).
+
+```nginx
+upstream awall { server 127.0.0.1:8402; }
+
+server {
+    listen 443 ssl;
+    server_name api.exemplo.com;
+
+    location / {
+        proxy_pass http://awall;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Deixe off (o padrão): on faria o nginx engolir o 402 e servir error_page.
+        proxy_intercept_errors off;
+
+        # A liquidação fala com o facilitator: segundos, não milissegundos.
+        proxy_read_timeout 60s;
+    }
+}
+```
+
+Com `X-Forwarded-For` vindo da borda, suba o gateway com `AWALL_TRUST_PROXY=1`.
+Se a configuração existente tiver `proxy_intercept_errors on` junto de um
+`error_page 402`, o cliente recebe a página de erro em vez dos termos de
+pagamento: é a única pegadinha deste modo no nginx.
+
 ## Modo B — serviço de decisão (ForwardAuth / ext_authz)
 
 ```
@@ -37,15 +72,15 @@ cliente ──► Traefik/Envoy ──► aplicação
 A borda pergunta ao AWall antes de cada requisição. `2xx` libera, e qualquer
 coisa diferente de `2xx` é devolvida ao cliente.
 
-Isso só funciona se a borda souber propagar um status arbitrário com corpo e
-headers, porque o `402` precisa chegar ao cliente com o header
-`PAYMENT-REQUIRED` intacto:
+Este modo — e **só** este — depende de a borda saber propagar um status
+arbitrário com corpo e headers, porque o `402` precisa chegar ao cliente com o
+header `PAYMENT-REQUIRED` intacto:
 
 | Borda | Propaga `402` com corpo e headers? | Observação |
 | --- | --- | --- |
 | **Traefik** `forwardAuth` | **Sim.** Resposta não-2xx do serviço de auth é devolvida ao cliente com status, corpo e headers | Atenção ao `maxResponseBodySize`: corpo maior que o limite vira `401`. Nosso `PaymentRequired` tem poucos KB |
 | **Envoy** `ext_authz` | **Sim.** `DeniedHttpResponse` tem `status`, `headers` e `body` | Caminho mais limpo para alto volume; use a variante gRPC |
-| **nginx** `auth_request` | **Não.** Só `2xx`, `401` e `403` são respostas válidas; qualquer outro status da subrequisição é tratado como erro e o cliente recebe `500` | Dá para contornar com `auth_request_set $awall_status $upstream_status` mais `error_page`, mas o corpo e os headers da subrequisição **não** passam. Com nginx puro, prefira o Modo A, ou escreva a resposta com njs/OpenResty |
+| **nginx** `auth_request` | **Não.** Só `2xx`, `401` e `403` são respostas válidas; qualquer outro status da subrequisição é tratado como erro e o cliente recebe `500` | Dá para contornar com `auth_request_set $awall_status $upstream_status` mais `error_page`, mas o corpo e os headers da subrequisição **não** passam, então os termos de pagamento se perdem. Com nginx puro, use o Modo A, ou monte a resposta com njs/OpenResty |
 
 ### Requisições que carregam pagamento não passam pelo ForwardAuth
 
