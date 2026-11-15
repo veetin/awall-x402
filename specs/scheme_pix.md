@@ -225,9 +225,18 @@ In addition to the core x402 error codes:
 ### Reference implementation
 
 AWall implements this scheme in `packages/pix`, with AbacatePay as the payment
-service provider (`POST /v1/pixQrCode/create`, status polling, and a signed
-webhook). The provider is an adapter: any Pix PSP that can create a charge and
-report its status satisfies the scheme.
+service provider: `POST /v2/transparents/create` with `method: "PIX"` creates the
+charge, `GET /v2/transparents/check?id=<chargeId>` reports its status, and a
+webhook delivery triggers that status query. The provider is an adapter: any Pix
+PSP that can create a charge and report its status satisfies the scheme.
+
+How a PSP authenticates its webhook varies, and some offer less than a signature
+over a secret only the two parties hold. AbacatePay sends a shared secret, in the
+`X-Webhook-Secret` header and in a `?webhookSecret=` query parameter, plus an
+HMAC-SHA256 body signature keyed with a key it publishes, so the signature
+establishes integrity rather than authenticity. That is one more reason an
+implementation MUST confirm the paid status by querying the provider, as the
+Verification section requires, rather than trusting the callback.
 
 ### Why not an extension instead of a scheme
 
