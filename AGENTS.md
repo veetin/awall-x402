@@ -123,8 +123,7 @@ pagamento não vai para `apps/gateway` se couber em `packages/pix` ou
 
 - **Código, identificadores, comentários e mensagens de erro em inglês.**
   Documentação em `docs/` em português; `specs/` em inglês.
-- Commits em Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`), assunto em
-  inglês, imperativo.
+- Commits e branches: ver a seção **Commits e branches** abaixo.
 - Sem `any`. Sem `as` para silenciar o compilador. Erro de tipo é informação.
 - Valores monetários em `bigint` ou `string`, nunca `number`.
 - Erro de domínio é tipo de retorno, não exceção solta: o gateway precisa
@@ -132,6 +131,91 @@ pagamento não vai para `apps/gateway` se couber em `packages/pix` ou
 - Log estruturado (JSON), sem corpo de requisição, sem chave de API, sem dado
   pessoal.
 - Nada de `console.log` deixado no caminho de requisição.
+
+## Commits e branches
+
+Conventional Commits, sem variação. O formato é:
+
+```
+<tipo>(<escopo>)!: <assunto>
+
+<corpo opcional>
+
+<rodapé opcional>
+```
+
+### Tipos
+
+| Tipo | Quando usar |
+| --- | --- |
+| `feat` | comportamento novo visível para quem usa o sistema |
+| `fix` | correção de defeito. **Não use `bugfix`**: no padrão o tipo é `fix` |
+| `docs` | só documentação, inclusive `docs/`, `specs/` e este arquivo |
+| `refactor` | muda estrutura sem mudar comportamento |
+| `test` | só teste, sem mexer no código de produção |
+| `perf` | melhora de desempenho |
+| `build` | dependências, pnpm, TypeScript, configuração de build |
+| `ci` | pipeline e automação |
+| `chore` | manutenção que não encaixa acima (limpeza, renomeio de arquivo, lockfile) |
+| `revert` | desfaz um commit anterior, citando o hash no corpo |
+
+`!` antes dos dois pontos marca quebra de compatibilidade, e nesse caso o rodapé
+traz `BREAKING CHANGE: <o que quebrou e o que fazer>`. Mudar o formato do 402, o
+nome de um header `X-AWall-*`, o schema da política ou o schema do banco é
+quebra de compatibilidade.
+
+### Escopos
+
+Um escopo por commit, igual ao nome da pasta: `gateway`, `console`, `policy`,
+`ledger`, `pix`, `settlement`, `agent-m2m`, `origin-demo`, `docs`, `specs`. Para
+mudança que atravessa o repositório inteiro (lockfile, tsconfig da raiz), omita o
+escopo.
+
+### Assunto
+
+- Em inglês, no imperativo: `add`, não `added` nem `adds`.
+- Minúscula no início, sem ponto final, no máximo 72 caracteres.
+- Diz o efeito, não o arquivo: `fix(gateway): refund credits when the origin fails`,
+  não `fix(gateway): change app.ts`.
+
+### Corpo
+
+Explica **por que**, não o que o diff já mostra. Linhas de até 72 caracteres.
+Obrigatório quando a mudança tem motivo não óbvio, decisão de projeto ou
+armadilha envolvida.
+
+### Rodapé
+
+- `Refs: VEE-12` quando o commit avança a issue.
+- `Closes VEE-12` quando a conclui — o Linear fecha a issue ao mergear.
+- Atribuição de agente, quando houver, vai por último.
+
+### Branches
+
+```
+<tipo>/vee-<número>-<slug-curto>
+```
+
+Exemplos: `feat/vee-1-settlement-no-gateway`, `fix/vee-12-settlement-pending`,
+`docs/vee-8-console-scope`.
+
+O identificador da issue no meio do nome é o que faz o Linear ligar branch, PR e
+issue automaticamente. O Linear sugere `feature/vee-1-...`; aqui usamos o mesmo
+vocabulário dos commits (`feat`, `fix`, `chore`…), e o que importa para a ligação
+é o `vee-<número>`.
+
+Sem issue (coisa pequena e isolada), use `chore/<slug>`. Nunca trabalhe direto em
+`master`.
+
+### Um commit, uma mudança
+
+Não misture refatoração com comportamento novo, nem correção com formatação. Se o
+assunto precisa de "e", provavelmente são dois commits.
+
+### Pull request
+
+Título no mesmo formato do assunto do commit. Corpo diz o que muda, o que foi
+verificado e o que ficou de fora. O rodapé cita a issue (`Closes VEE-12`).
 
 ## Comandos
 
