@@ -51,21 +51,48 @@ export class TokenBucket {
   }
 }
 
-/** One bucket per identity. */
+export type BucketLimits = { capacity: number; refillPerSecond: number };
+
+/**
+ * One bucket per key.
+ *
+ * The key is the identity plus a scope, so a route with a quota of its own gets
+ * a separate bucket from the shared one. Limits come from the caller, because
+ * they are a property of the scope and not of the store.
+ */
 export class BucketStore {
   private readonly buckets = new Map<string, TokenBucket>();
 
-  constructor(
-    private readonly capacity: number,
-    private readonly refillPerSecond: number,
-  ) {}
-
-  get(identityId: string): TokenBucket {
-    let bucket = this.buckets.get(identityId);
+  /**
+   * Get the bucket for a key, creating it on first use.
+   *
+   * @param key - Identity plus scope, e.g. `idt_123|GET /v1/reports/*`.
+   * @param limits - Capacity and refill rate for this scope.
+   * @returns The bucket.
+   */
+  get(key: string, limits: BucketLimits): TokenBucket {
+    let bucket = this.buckets.get(key);
     if (!bucket) {
-      bucket = new TokenBucket(this.capacity, this.refillPerSecond);
-      this.buckets.set(identityId, bucket);
+      bucket = new TokenBucket(limits.capacity, limits.refillPerSecond);
+      this.buckets.set(key, bucket);
     }
     return bucket;
   }
+}
+
+/**
+ * Translate a quota window into bucket limits.
+ *
+ * @param tier - Quota window from the policy.
+ * @returns Capacity, including burst headroom, and refill rate per second.
+ */
+export function limitsFor(tier: {
+  credits: number;
+  burst: number;
+  window_seconds: number;
+}): BucketLimits {
+  return {
+    capacity: tier.credits + tier.burst,
+    refillPerSecond: tier.credits / tier.window_seconds,
+  };
 }

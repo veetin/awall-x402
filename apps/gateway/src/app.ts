@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import { getConnInfo } from "@hono/node-server/conninfo";
-import { BucketStore, RouteTable, priceFor, type Policy } from "@awall/policy";
+import { BucketStore, RouteTable, decide, priceFor, type Policy } from "@awall/policy";
 import type { GatewayConfig } from "./config.js";
 import { IdentityStore } from "./identity.js";
 import { OfferStore } from "./offers.js";
@@ -45,10 +45,7 @@ export function createApp(config: GatewayConfig, policy: Policy) {
   const routes = new RouteTable(policy);
   const identities = new IdentityStore();
   const offers = new OfferStore();
-  const buckets = new BucketStore(
-    policy.free_tier.credits + policy.free_tier.burst,
-    policy.free_tier.credits / policy.free_tier.window_seconds,
-  );
+  const buckets = new BucketStore();
 
   const app = new Hono();
 
@@ -70,10 +67,10 @@ export function createApp(config: GatewayConfig, policy: Policy) {
       remoteAddress(c, config.trustProxy),
     );
     const path = new URL(c.req.url).pathname;
-    const route = routes.find(c.req.method, path);
+    const decision = decide(policy, routes, c.req.method, path);
 
-    if (!route) {
-      return c.json({ error: "route_not_configured", path }, 404);
+    if (decision.kind === "deny") {
+      return c.json({ error: decision.reason, path }, 404);
     }
 
     // Settlement lands in the next step of the roadmap (docs/05-roadmap.md).
@@ -85,15 +82,20 @@ export function createApp(config: GatewayConfig, policy: Policy) {
       );
     }
 
-    const bucket = buckets.get(identity.id);
-    if (!bucket.take(route.credits)) {
+    const cost = decision.kind === "charge" ? decision.credits : 0;
+    const bucket =
+      decision.kind === "charge"
+        ? buckets.get(`${identity.id}|${decision.scope}`, decision.limits)
+        : undefined;
+
+    if (bucket && !bucket.take(cost)) {
       const price = priceFor(policy, identity.abuseScore);
       const offer = offers.create(identity.id, price);
       const paymentRequired = buildPaymentRequired(c.req.url, offer, config);
       c.header("PAYMENT-REQUIRED", encodeHeader(paymentRequired));
       c.header("Retry-After", "2");
       c.header("X-AWall-Identity", identity.id);
-      c.header("X-AWall-Cost-Credits", String(route.credits));
+      c.header("X-AWall-Cost-Credits", String(cost));
       c.header("X-AWall-Credits-Remaining", "0");
       c.header("X-AWall-Abuse-Score", identity.abuseScore.toFixed(2));
       c.header("X-AWall-Price-Multiplier", price.multiplier.toFixed(2));
@@ -105,19 +107,22 @@ export function createApp(config: GatewayConfig, policy: Policy) {
     try {
       response = await forward(c.req.raw, policy.origin);
     } catch {
-      bucket.refund(route.credits);
+      bucket?.refund(cost);
       return c.json({ error: "origin_unreachable" }, 502);
     }
 
     // The client does not pay for our failure.
-    if (response.status >= 500) bucket.refund(route.credits);
+    if (response.status >= 500) bucket?.refund(cost);
 
     // A response's own Headers are immutable, so copy them before adding ours.
     const headers = new Headers();
     for (const [name, value] of response.headers) headers.set(name, value);
     headers.set("X-AWall-Identity", identity.id);
-    headers.set("X-AWall-Cost-Credits", String(route.credits));
-    headers.set("X-AWall-Free-Remaining-Credits", String(bucket.remaining()));
+    headers.set("X-AWall-Cost-Credits", String(cost));
+    if (bucket) {
+      headers.set("X-AWall-Free-Remaining-Credits", String(bucket.remaining()));
+      headers.set("X-AWall-Quota-Scope", decision.kind === "charge" ? decision.scope : "none");
+    }
     headers.set("X-AWall-Latency-Ms", String(Date.now() - started));
 
     return new Response(response.body, { status: response.status, headers });

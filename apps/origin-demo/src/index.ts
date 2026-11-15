@@ -18,6 +18,16 @@ const items: Item[] = [
 
 app.get("/healthz", c => c.json({ ok: true }));
 
+/** Free route in the policy: must keep working without payment. */
+app.get("/v1/health", c => c.json({ ok: true, items: items.length }));
+
+/** Expensive route: the policy gives it a quota of its own. */
+app.get("/v1/reports/:period", c => {
+  const period = c.req.param("period");
+  const total = items.reduce((sum, item) => sum + item.priceCents, 0);
+  return c.json({ period, items: items.length, totalCents: total });
+});
+
 app.get("/v1/search", c => {
   const query = (c.req.query("q") ?? "").toLowerCase();
   const hits = query

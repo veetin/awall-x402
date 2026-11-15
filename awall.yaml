@@ -1,5 +1,14 @@
 origin: http://localhost:8787
 
+# What to do with a request whose route is not listed below.
+#   deny   - answer 404 and never reach the origin (default, safest)
+#   free   - proxy it without charging
+#   charge - proxy it at `defaults.credits`
+defaults:
+  unmatched: deny
+  credits: 1
+
+# Shared quota: used by every route that has no `free_tier` of its own.
 free_tier:
   window_seconds: 60
   credits: 100
@@ -12,6 +21,10 @@ pricing:
   max_multiplier: 3.0
 
 routes:
+  # Never charged, never answered with 402.
+  - match: "GET /v1/health"
+    free: true
+
   - match: "GET /v1/search"
     credits: 1
   - match: "GET /v1/items/*"
@@ -21,3 +34,10 @@ routes:
   - match: "POST /v1/completions"
     credits: 50
     metered: true
+
+  # A quota of its own, so an expensive route cannot eat the shared one.
+  - match: "GET /v1/reports/*"
+    credits: 20
+    free_tier:
+      window_seconds: 3600
+      credits: 100

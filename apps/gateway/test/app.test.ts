@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadPolicy } from "@awall/policy";
+import { loadPolicy, policySchema } from "@awall/policy";
 import { createApp } from "../src/app.js";
 import { readConfig } from "../src/config.js";
 import { decodeHeader } from "../src/x402.js";
@@ -17,6 +17,31 @@ const CALLS_IN_FREE_QUOTA = 2;
 function app() {
   return createApp(config, policy);
 }
+
+const freeRoutePolicy = policySchema.parse({
+  origin: "http://127.0.0.1:59999",
+  free_tier: { window_seconds: 60, credits: 4, burst: 0 },
+  pricing: {
+    pack_credits: 10000,
+    price_usdc: "0.50",
+    price_brl_cents: 290,
+    max_multiplier: 3.0,
+  },
+  routes: [
+    { match: "GET /v1/health", free: true },
+    { match: "GET /v1/search", credits: 2 },
+    {
+      match: "GET /v1/reports/*",
+      credits: 2,
+      free_tier: { window_seconds: 3600, credits: 2 },
+    },
+  ],
+});
+
+const unmatchedFreePolicy = policySchema.parse({
+  ...freeRoutePolicy,
+  defaults: { unmatched: "free", credits: 1 },
+});
 
 /** Replace the origin with a fixed response, so no socket is needed. */
 function stubOrigin(status: number): void {
@@ -177,5 +202,40 @@ describe("identity behind an edge proxy", () => {
     expect(first.headers.get("X-AWall-Identity")).not.toBe(
       second.headers.get("X-AWall-Identity"),
     );
+  });
+});
+
+describe("per-route configuration", () => {
+  it("serves a free route without touching the quota", async () => {
+    stubOrigin(200);
+    const gateway = createApp(config, freeRoutePolicy);
+    for (let i = 0; i < 20; i += 1) {
+      const res = await gateway.request("/v1/health", { headers: { "x-api-key": "k" } });
+      expect(res.status).toBe(200);
+      expect(res.headers.get("X-AWall-Cost-Credits")).toBe("0");
+    }
+  });
+
+  it("keeps a route with its own quota separate from the shared one", async () => {
+    stubOrigin(200);
+    const gateway = createApp(config, freeRoutePolicy);
+    const headers = { "x-api-key": "scoped-key" };
+
+    // The report route has 2 credits of its own and costs 2: one call, then 402.
+    expect((await gateway.request("/v1/reports/2026-11", { headers })).status).toBe(200);
+    expect((await gateway.request("/v1/reports/2026-11", { headers })).status).toBe(402);
+
+    // The shared quota is untouched, so the search route still answers.
+    const search = await gateway.request("/v1/search", { headers });
+    expect(search.status).toBe(200);
+    expect(search.headers.get("X-AWall-Quota-Scope")).toBe("shared");
+  });
+
+  it("proxies unlisted routes when defaults say free", async () => {
+    stubOrigin(200);
+    const gateway = createApp(config, unmatchedFreePolicy);
+    const res = await gateway.request("/v1/anything", { headers: { "x-api-key": "k" } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("X-AWall-Cost-Credits")).toBe("0");
   });
 });

@@ -48,16 +48,32 @@ atribuível, o que por si só desincentiva o anonimato abusivo.
 Configuração declarativa em YAML, carregada no boot e recarregável a quente.
 Define:
 
-- **Custo por rota** em créditos. Uma busca barata custa 1 crédito; uma
-  rota de inferência custa 50 créditos. É o que permite preço justo por endpoint.
-- **Cota gratuita** por identidade (créditos por janela, mais burst).
-- **Preço base**: quantos créditos vêm em cada pacote de crédito e quanto custa o pacote.
-- **Trilhos aceitos** por rota (stablecoin, Pix, ou ambos).
+- **Custo por rota** em créditos. Uma busca barata custa 1 crédito; uma rota de
+  inferência custa 50. É o que permite preço justo por endpoint.
+- **Rota isenta** (`free: true`): nunca cobrada e nunca respondida com 402. É onde
+  entram health check, login, webhook e qualquer coisa que precisa continuar
+  funcionando sem pagamento.
+- **Cota própria por rota** (`free_tier` dentro da rota): a rota passa a ter um
+  bucket separado, em vez de dividir o compartilhado. Serve para impedir que uma
+  rota cara consuma a cota gratuita inteira.
+- **Rota não listada** (`defaults.unmatched`): `deny` responde 404 sem chegar na
+  origin (padrão, e o mais seguro ao colocar o gateway na frente de uma API que
+  você não mapeou toda), `free` repassa sem cobrar, `charge` cobra
+  `defaults.credits`.
+- **Cota compartilhada** (`free_tier` na raiz): usada por toda rota sem cota
+  própria.
+- **Preço base**: quantos créditos vêm em cada pacote e quanto custa o pacote. O
+  preço é global; a diferenciação entre rotas é feita pelo custo em créditos, não
+  por preço por rota.
 
 Exemplo:
 
 ```yaml
 origin: http://localhost:8787
+
+defaults:
+  unmatched: deny        # deny | free | charge
+  credits: 1
 
 free_tier:
   window_seconds: 60
@@ -66,19 +82,34 @@ free_tier:
 
 pricing:
   pack_credits: 10000
-  price_usdc: "0.50"          # 5000000 em unidades atômicas (Stellar: 7 decimais)
+  price_usdc: "0.50"     # 5000000 em unidades atômicas (Stellar: 7 decimais)
   price_brl_cents: 290
   max_multiplier: 3.0
 
 routes:
+  - match: "GET /v1/health"
+    free: true
+
   - match: "GET /v1/search"
     credits: 1
+
   - match: "GET /v1/items/*"
     credits: 2
+
   - match: "POST /v1/completions"
     credits: 50
-    metered: true             # custo em créditos calculado após a resposta (tokens, bytes)
+    metered: true        # custo recalculado depois da resposta (tokens, bytes)
+
+  - match: "GET /v1/reports/*"
+    credits: 20
+    free_tier:           # cota própria: 100 créditos por hora
+      window_seconds: 3600
+      credits: 100
 ```
+
+O casamento é por método mais caminho, com `*` no fim como prefixo, e a primeira
+regra que casa ganha. A decisão fica em `decide()`, em `packages/policy`, para o
+gateway não ter regra de negócio espalhada.
 
 ### 3. Quota e crédito
 
