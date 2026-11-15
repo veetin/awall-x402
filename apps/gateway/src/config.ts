@@ -14,6 +14,13 @@ export type GatewayConfig = {
   facilitatorUrl: string;
   checkoutBaseUrl: string;
   publicBaseUrl: string;
+  /**
+   * Trust `X-Forwarded-For` for the fingerprint identity.
+   *
+   * Only turn this on when an edge proxy overwrites the header, otherwise any
+   * client can forge its own identity. See docs/07-producao.md.
+   */
+  trustProxy: boolean;
 };
 
 /**
@@ -54,5 +61,6 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     facilitatorUrl: env["X402_FACILITATOR_URL"] ?? "https://www.x402.org/facilitator",
     checkoutBaseUrl: env["AWALL_CHECKOUT_BASE_URL"] ?? "http://localhost:3000",
     publicBaseUrl: env["AWALL_PUBLIC_BASE_URL"] ?? `http://localhost:${port}`,
+    trustProxy: env["AWALL_TRUST_PROXY"] === "1",
   };
 }

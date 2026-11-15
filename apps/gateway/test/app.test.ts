@@ -151,3 +151,31 @@ describe("gateway", () => {
     await expect(res.json()).resolves.toMatchObject({ error: "origin_unreachable" });
   });
 });
+
+describe("identity behind an edge proxy", () => {
+  const forwarded = { "x-forwarded-for": "203.0.113.7, 10.0.0.1" };
+
+  it("ignores X-Forwarded-For by default", async () => {
+    stubOrigin(200);
+    const res = await app().request("/v1/search", { headers: forwarded });
+    expect(res.headers.get("X-AWall-Identity")).toBe(
+      (
+        await app().request("/v1/search", {
+          headers: { "x-forwarded-for": "198.51.100.9" },
+        })
+      ).headers.get("X-AWall-Identity"),
+    );
+  });
+
+  it("separates identities per forwarded address when the proxy is trusted", async () => {
+    stubOrigin(200);
+    const trusting = createApp({ ...config, trustProxy: true }, policy);
+    const first = await trusting.request("/v1/search", { headers: forwarded });
+    const second = await trusting.request("/v1/search", {
+      headers: { "x-forwarded-for": "198.51.100.9" },
+    });
+    expect(first.headers.get("X-AWall-Identity")).not.toBe(
+      second.headers.get("X-AWall-Identity"),
+    );
+  });
+});

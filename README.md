@@ -33,6 +33,7 @@ Hack Brasil 2026 — trilha *Pagamentos e finanças*.
 | [docs/05-roadmap.md](docs/05-roadmap.md) | Plano dia a dia até 30 de novembro e cortes de escopo |
 | [docs/06-demo-e-pitch.md](docs/06-demo-e-pitch.md) | Roteiro do vídeo de 3 minutos e checklist de submissão |
 | [specs/scheme_pix.md](specs/scheme_pix.md) | Especificação do scheme `pix` para x402 |
+| [docs/07-producao.md](docs/07-producao.md) | Produção: AWall atrás de nginx/Traefik, ForwardAuth, estado e falhas |
 | [AGENTS.md](AGENTS.md) | Regras para agentes de código: invariantes, fatos de rede, convenções |
 
 ## Rodando local

@@ -27,6 +27,7 @@ documento, atualize o documento no mesmo commit.
 | `docs/04-modelo-dados.md` | antes de mexer em schema, ledger ou transação de banco |
 | `docs/05-roadmap.md` | antes de começar uma feature: confere ordem e cortes |
 | `specs/scheme_pix.md` | antes de tocar no trilho Pix |
+| `docs/07-producao.md` | antes de mexer em deploy, proxy de borda ou estado compartilhado |
 
 ## Regras duras
 

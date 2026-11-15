@@ -10,20 +10,28 @@ import { buildPaymentRequired, encodeHeader } from "./x402.js";
 /**
  * Best-effort client address, used only by the fingerprint fallback.
  *
- * `getConnInfo` needs a real Node socket, which `app.request` in tests does not
- * provide, so a failure here must not fail the request.
+ * Behind an edge proxy the socket address is the proxy's, which would collapse
+ * every anonymous caller into one identity, so `X-Forwarded-For` wins when the
+ * operator says the edge can be trusted. `getConnInfo` needs a real Node socket,
+ * which `app.request` in tests does not provide, so a failure here must not fail
+ * the request.
  *
  * @param c - Request context.
- * @returns The remote address, a forwarded address, or `"unknown"`.
+ * @param trustProxy - Whether `X-Forwarded-For` may be believed.
+ * @returns The client address, or `"unknown"`.
  */
-function remoteAddress(c: Context): string {
+function remoteAddress(c: Context, trustProxy: boolean): string {
+  if (trustProxy) {
+    const forwarded = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+    if (forwarded) return forwarded;
+  }
   try {
     const address = getConnInfo(c).remote.address;
     if (address) return address;
   } catch {
-    // fall through to the header
+    // no socket (tests, or a non-node runtime)
   }
-  return c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  return "unknown";
 }
 
 /**
@@ -57,7 +65,10 @@ export function createApp(config: GatewayConfig, policy: Policy) {
   });
 
   app.all("*", async c => {
-    const identity = identities.resolve(c.req.raw.headers, remoteAddress(c));
+    const identity = identities.resolve(
+      c.req.raw.headers,
+      remoteAddress(c, config.trustProxy),
+    );
     const path = new URL(c.req.url).pathname;
     const route = routes.find(c.req.method, path);
 
