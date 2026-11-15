@@ -59,7 +59,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     // No default: a real address must be configured before the paid flow works.
     payTo: env["STELLAR_PAY_TO"] ?? "",
     facilitatorUrl: env["X402_FACILITATOR_URL"] ?? "https://www.x402.org/facilitator",
-    checkoutBaseUrl: env["AWALL_CHECKOUT_BASE_URL"] ?? "http://localhost:3000",
+    checkoutBaseUrl: env["AWALL_CHECKOUT_BASE_URL"] ?? "http://localhost:5173",
     publicBaseUrl: env["AWALL_PUBLIC_BASE_URL"] ?? `http://localhost:${port}`,
     trustProxy: env["AWALL_TRUST_PROXY"] === "1",
   };

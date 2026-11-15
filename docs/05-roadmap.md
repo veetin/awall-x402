@@ -17,8 +17,8 @@ e testar. Boilerplate open source já público é exceção permitida.
 | 18-19/11 | Ledger em Postgres: identidades, offers, payments, lançamentos, idempotência, estorno de 5xx | teste de invariante `sum(delta_credits) = credit_balance` passa; webhook duplicado não credita duas vezes |
 | 20-21/11 | Trilho Pix: offer com cobrança AbacatePay, página de paywall, webhook, polling de status | humano paga Pix no ambiente de teste e o agente assistido retoma sozinho |
 | 22/11 | `specs/scheme_pix.md` escrito no formato do template oficial de schemes | documento completo, com fluxo, campos obrigatórios e considerações de segurança |
-| 23-24/11 | Escore de abuso e preço dinâmico; headers informativos; recibos | duas identidades com padrões diferentes recebem preços diferentes, visível no dashboard |
-| 25/11 | Dashboard ao vivo por SSE: 200/402/pagos, receita por trilho, requisições recuperadas | dashboard reflete a demo em tempo real, sem recarregar |
+| 23-24/11 | Escore de abuso e preço dinâmico; headers informativos; recibos | duas identidades com padrões diferentes recebem preços diferentes, visível no console |
+| 25/11 | Plano de controle no gateway (`/awall/stats/*`, `/awall/identities`, `/awall/payments`) e console em Vite + React, fase 1 de [08-dashboard.md](08-dashboard.md): ao vivo por SSE, receita por trilho, requisições recuperadas, política em leitura | console reflete a demo em tempo real, sem recarregar, com token de administrador |
 | 26/11 | Deploy HTTPS (gateway e console), seed de demonstração, `scripts/demo.sh` | roteiro inteiro roda contra a URL pública |
 | 27/11 | Endurecimento: testes, tratamento de erro do facilitator, `settlement_pending`, limites de corpo e timeout | suíte verde; falha do facilitator não derruba o gateway |
 | 28/11 | README final, vídeo de 3 minutos, submissão | submetido |
@@ -35,7 +35,8 @@ A ordem importa, porque cada etapa é demonstrável sozinha:
 5. Ledger persistido e idempotência.
 6. Trilho Pix sobre a mesma offer.
 7. Escore de abuso multiplicando o preço.
-8. Observabilidade (SSE, recibos, dashboard).
+8. Observabilidade: plano de controle no gateway, SSE, recibos, e o console da
+   fase 1 (`docs/08-dashboard.md`).
 9. Rota medida: custo em créditos calculado a partir da medição da origin.
 
 ## Cortes de escopo, em ordem de sacrifício
@@ -47,10 +48,13 @@ consciente, não uma falha:
    custo fixo por rota já sustenta a narrativa inteira.
 2. **Preço dinâmico por escore de abuso** → multiplicador fixo por tier. O escore
    continua sendo calculado e exibido, só não altera preço.
-3. **Dashboard rico** → tabela simples com SSE.
-4. **Promoção de identidade** (fingerprint para wallet) → identidade só por chave
+3. **Console da fase 2** (edição de política com versionamento e auditoria) → a
+   política continua só no YAML do servidor.
+4. **Console da fase 1 completo** → uma tela só: tabela ao vivo por SSE mais os
+   três números de receita.
+5. **Promoção de identidade** (fingerprint para wallet) → identidade só por chave
    de API.
-5. **Recibos por identidade** → extrato só no dashboard.
+6. **Recibos por identidade** → extrato só no console.
 
 Não cortáveis, porque são a tese do projeto: 402 em vez de 429, trilho M2M em
 stablecoin, trilho Pix para agente assistido, ledger com idempotência.

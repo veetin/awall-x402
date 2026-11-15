@@ -162,15 +162,23 @@ crédito aponta para um pagamento, e todo pagamento tem chave de idempotência
 (hash da transação on-chain ou id da cobrança Pix). Detalhes no documento
 [04-modelo-dados.md](04-modelo-dados.md).
 
-### 7. Console (dashboard + paywall)
+### 7. Console (checkout + dashboard)
 
-Aplicação Next que serve:
+Aplicação Vite + React que serve duas áreas, detalhadas em
+[08-dashboard.md](08-dashboard.md):
 
-- **Paywall**: página de checkout exibida quando o 402 é consumido por um
-  navegador (`Accept: text/html`). Mostra as duas opções, QR Code do Pix e botão
-  de carteira, e faz polling do status da offer.
-- **Dashboard**: tráfego ao vivo (200 / 402 / pagos), receita por trilho,
-  requisições recuperadas, escore de abuso por identidade, recibos.
+- **Checkout** (`/pay/:offerId`, público): página exibida quando o 402 é consumido
+  por um navegador, ou aberta pelo humano a partir de `extra.checkoutUrl`. Mostra
+  as duas opções, QR Code do Pix e botão de carteira, e faz polling do status da
+  offer.
+- **Dashboard** (interno, token de administrador): tráfego ao vivo por SSE,
+  receita por trilho, requisições recuperadas, identidades com escore de abuso e
+  saldo, offers e pagamentos para auditoria, e a política — em leitura na fase 1,
+  editável com versionamento e auditoria na fase 2.
+
+O gateway precisa expor um plano de controle para isso (`/awall/stats/*`,
+`/awall/identities`, `/awall/payments`, `/awall/policy`), com token próprio e,
+em produção, idealmente numa porta separada do proxy.
 
 ## Ciclo de vida da requisição
 
@@ -228,7 +236,7 @@ viável.
 awall-x402/
 ├── apps/
 │   ├── gateway/          Hono — proxy, política, ledger, orquestração de pagamento
-│   ├── console/          Next — dashboard e página de paywall
+│   ├── console/          Vite + React — dashboard do operador e página de checkout
 │   ├── origin-demo/      API protegida de exemplo (catálogo + rota medida)
 │   └── agent-m2m/        agente autônomo com carteira, usa @x402/fetch
 ├── packages/
@@ -250,9 +258,9 @@ Monorepo com pnpm workspaces. TypeScript em tudo.
 | --- | --- | --- |
 | Proxy | Hono (Node 22) | existe `@x402/hono` oficial; runtime enxuto |
 | Banco | Postgres (Neon) + Drizzle | ledger precisa de transação e lock de linha |
-| Console | Next 15 | paywall e dashboard no mesmo deploy |
+| Console | Vite + React | dashboard do operador e checkout no mesmo deploy; escopo em `docs/08-dashboard.md` |
 | Cliente M2M | `@x402/fetch` + `@x402/stellar` | wrapper de fetch que resolve o 402 sozinho |
-| Pix | AbacatePay | `POST /v1/pixQrCode/create`, webhook, ambiente de teste |
+| Pix | AbacatePay | `POST /v2/transparents/create` com `method: "PIX"`, webhook, ambiente de teste |
 | Rede | Stellar testnet (`stellar:testnet`) | taxa patrocinada, ~5s de finalidade, USDC nativo; pubnet por flag |
 | Ativo | USDC SAC `CBIELTK6…MXQDAMA`, 7 decimais | ativo padrão do `@x402/stellar` em testnet |
 | Facilitator | `https://www.x402.org/facilitator` | o `/supported` público já anuncia `exact` em `stellar:testnet` |

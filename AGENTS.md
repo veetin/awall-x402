@@ -27,6 +27,7 @@ documento, atualize o documento no mesmo commit.
 | `docs/04-modelo-dados.md` | antes de mexer em schema, ledger ou transação de banco |
 | `docs/05-roadmap.md` | antes de começar uma feature: confere ordem e cortes |
 | `specs/scheme_pix.md` | antes de tocar no trilho Pix |
+| `docs/08-dashboard.md` | antes de tocar no console, no plano de controle ou nos endpoints `/awall/*` |
 | `docs/07-producao.md` | antes de mexer em deploy, proxy de borda ou estado compartilhado |
 
 ## Regras duras
@@ -56,6 +57,9 @@ Quebrar uma destas é bug, não escolha de estilo.
 10. **Chave de API só persiste como hash** (SHA-256). Nunca em claro, nunca em log.
 11. **A unidade de consumo chama `credits`** (em português, "créditos"). Nunca
     `CU`, nunca "compute units": o nome anterior foi abandonado de propósito.
+12. **O prefixo `/awall` é reservado** e nunca é encaminhado para a origin. Os
+    endpoints do console exigem `AWALL_ADMIN_TOKEN`; só `GET /awall/offers/:id` é
+    público, e ele não devolve dado de identidade.
 
 ## Fatos de rede (não adivinhe, use estes)
 
@@ -85,8 +89,9 @@ Detalhes que causam falha silenciosa:
 - Stellar: `@x402/stellar` (2.28.0) + `@stellar/stellar-sdk` (^16.3.0).
 - Cliente de demonstração: `@x402/fetch`.
 - Banco: Postgres + Drizzle.
-- Console: Next 15.
-- Pix: AbacatePay (`POST /v1/pixQrCode/create`, status, webhook assinado).
+- Console: Vite + React + TypeScript (escopo em `docs/08-dashboard.md`).
+- Pix: AbacatePay (`POST /v2/transparents/create` com `method: "PIX"`, status,
+  webhook). `data.externalId` é o campo de idempotência do provedor.
 
 Os pacotes v2 são escopados (`@x402/*`, série 2.x). **O pacote `x402` sem escopo é
 v1 e não deve ser usado**; o binding Stellar declara que v1 não será suportado.
@@ -99,7 +104,7 @@ validação ou de utilidades sem necessidade concreta.
 
 ```
 apps/gateway/      proxy, política, ledger, orquestração de pagamento (:8402)
-apps/console/      Next: dashboard e paywall
+apps/console/      Vite + React: dashboard do operador e checkout público
 apps/origin-demo/  API protegida de exemplo
 apps/agent-m2m/    agente autônomo com carteira Stellar de testnet
 packages/policy/   parser do YAML, créditos, preço, multiplicador de abuso

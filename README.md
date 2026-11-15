@@ -34,6 +34,7 @@ Hack Brasil 2026 — trilha *Pagamentos e finanças*.
 | [docs/06-demo-e-pitch.md](docs/06-demo-e-pitch.md) | Roteiro do vídeo de 3 minutos e checklist de submissão |
 | [specs/scheme_pix.md](specs/scheme_pix.md) | Especificação do scheme `pix` para x402 |
 | [docs/07-producao.md](docs/07-producao.md) | Produção: AWall atrás de nginx/Traefik, ForwardAuth, estado e falhas |
+| [docs/08-dashboard.md](docs/08-dashboard.md) | Console em Vite + React: telas, contrato de API, autenticação e fases |
 | [AGENTS.md](AGENTS.md) | Regras para agentes de código: invariantes, fatos de rede, convenções |
 
 ## Rodando local
