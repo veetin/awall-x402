@@ -51,7 +51,7 @@ Quebrar uma destas é bug, não escolha de estilo.
    `identities.credit_balance` sem inserir o lançamento correspondente em
    `credit_ledger` na mesma transação.
 7. **Cota esgotada responde 402, nunca 429.** É a tese do projeto.
-8. **Falha da origin (5xx) estorna o créditos.** Cliente não paga pelo nosso erro.
+8. **Falha da origin (5xx) estorna os créditos.** Cliente não paga pelo nosso erro.
 9. **Segredo nunca entra no repositório.** Só `.env.example` com as chaves
    documentadas e valores vazios.
 10. **Chave de API só persiste como hash** (SHA-256). Nunca em claro, nunca em log.
