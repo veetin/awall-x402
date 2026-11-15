@@ -35,9 +35,36 @@ Hack Brasil 2026 — trilha *Pagamentos e finanças*.
 | [specs/scheme_pix.md](specs/scheme_pix.md) | Especificação do scheme `pix` para x402 |
 | [AGENTS.md](AGENTS.md) | Regras para agentes de código: invariantes, fatos de rede, convenções |
 
+## Rodando local
+
+```
+corepack enable pnpm
+pnpm install
+pnpm dev
+```
+
+O gateway sobe em `:8402` na frente da API de exemplo em `:8787`. A cota gratuita
+está em [awall.yaml](awall.yaml).
+
+```
+curl -H "x-api-key: demo" "http://localhost:8402/v1/search?q=camera"
+```
+
+Repita até a cota acabar: a resposta passa a ser `402 Payment Required`, com os
+termos de pagamento no header `PAYMENT-REQUIRED` e repetidos no corpo. O fluxo
+inteiro também roda de uma vez:
+
+```
+./scripts/demo.sh
+```
+
 ## Status
 
-Em desenho. Nenhum código de produção escrito ainda.
+Gateway, política e API de exemplo funcionando: cota gratuita, `402` com os dois
+trilhos (`exact` em Stellar e `pix`), offer com status e estorno quando a origin
+falha. **A liquidação do pagamento ainda não existe** — enviar `PAYMENT-SIGNATURE`
+devolve `501`, de propósito, em vez de simular sucesso. Próximo passo em
+[docs/05-roadmap.md](docs/05-roadmap.md).
 
 ## Licença
 

@@ -12,7 +12,7 @@ gateway.
   agente autônomo ───► │                AWall gateway                 │
   (carteira, M2M)      │                                              │
                        │  1. identity resolver                        │
-  agente assistido ──► │  2. policy engine (rotas, custo em CU)       │ ──► origin API
+  agente assistido ──► │  2. policy engine (rotas, custo em créditos)       │ ──► origin API
   (humano no loop)     │  3. quota / credit check                     │     (sem alteração)
                        │  4. abuse score ─► multiplicador de preço    │
                        │  5. payment orchestrator                     │
@@ -48,10 +48,10 @@ atribuível, o que por si só desincentiva o anonimato abusivo.
 Configuração declarativa em YAML, carregada no boot e recarregável a quente.
 Define:
 
-- **Custo por rota** em *compute units* (CU). Uma busca barata custa 1 CU; uma
-  rota de inferência custa 50 CU. É o que permite preço justo por endpoint.
-- **Cota gratuita** por identidade (CU por janela, mais burst).
-- **Preço base**: quantos CU vêm em cada pacote de crédito e quanto custa o pacote.
+- **Custo por rota** em créditos. Uma busca barata custa 1 crédito; uma
+  rota de inferência custa 50 créditos. É o que permite preço justo por endpoint.
+- **Cota gratuita** por identidade (créditos por janela, mais burst).
+- **Preço base**: quantos créditos vêm em cada pacote de crédito e quanto custa o pacote.
 - **Trilhos aceitos** por rota (stablecoin, Pix, ou ambos).
 
 Exemplo:
@@ -60,24 +60,24 @@ Exemplo:
 origin: http://localhost:8787
 
 free_tier:
-  window: 60s
-  cu: 100
+  window_seconds: 60
+  credits: 100
   burst: 30
 
 pricing:
-  pack_cu: 10000
-  price_usdc: "0.50"          # 500000 em unidades atômicas (6 decimais)
+  pack_credits: 10000
+  price_usdc: "0.50"          # 5000000 em unidades atômicas (Stellar: 7 decimais)
   price_brl_cents: 290
   max_multiplier: 3.0
 
 routes:
   - match: "GET /v1/search"
-    cu: 1
+    credits: 1
   - match: "GET /v1/items/*"
-    cu: 2
+    credits: 2
   - match: "POST /v1/completions"
-    cu: 50
-    metered: true             # custo em CU calculado após a resposta (tokens, bytes)
+    credits: 50
+    metered: true             # custo em créditos calculado após a resposta (tokens, bytes)
 ```
 
 ### 3. Quota e crédito
@@ -115,18 +115,18 @@ Emite os termos de pagamento e processa a liquidação dos dois trilhos.
 - **Trilho M2M (`exact` em Stellar)**: monta o objeto `PaymentRequired`, valida o
   `PAYMENT-SIGNATURE` recebido contra a própria política (nunca contra o que o
   cliente alega), chama `/verify` e `/settle` do facilitator e credita o pacote de
-  CU no ledger. O facilitator patrocina a taxa da transação, então o agente só
+  créditos no ledger. O facilitator patrocina a taxa da transação, então o agente só
   precisa ter USDC — não precisa de XLM para gas.
 - **Trilho Pix**: cria uma *offer* no banco, gera a cobrança na AbacatePay,
   devolve `extra.checkoutUrl` dentro do 402, e credita o pacote quando o webhook
   confirma o pagamento.
-- **Rotas medidas**: para `metered: true`, o custo em CU é calculado depois da
+- **Rotas medidas**: para `metered: true`, o custo em créditos é calculado depois da
   resposta da origin e debitado do pacote. A medição é off-chain; não existe
   scheme `upto` em Stellar.
 
 ### 6. Credit ledger
 
-Livro-caixa append-only de CU por identidade, com saldo materializado. Todo
+Livro-caixa append-only de créditos por identidade, com saldo materializado. Todo
 crédito aponta para um pagamento, e todo pagamento tem chave de idempotência
 (hash da transação on-chain ou id da cobrança Pix). Detalhes no documento
 [04-modelo-dados.md](04-modelo-dados.md).
@@ -146,18 +146,18 @@ Aplicação Next que serve:
 ### Caminho feliz, dentro da cota
 
 1. Requisição chega no gateway.
-2. Identidade resolvida; política da rota encontrada; custo em CU calculado.
-3. Token bucket tem saldo: debita CU, grava `usage_event`, repassa para a origin.
+2. Identidade resolvida; política da rota encontrada; custo em créditos calculado.
+3. Token bucket tem saldo: debita créditos, grava `usage_event`, repassa para a origin.
 4. Resposta da origin volta com headers informativos
-   (`X-AWall-Cost-CU`, `X-AWall-Credits-Remaining`, mais os headers padrão de
+   (`X-AWall-Cost-Credits`, `X-AWall-Credits-Remaining`, mais os headers padrão de
    rate limit, para transparência).
-5. Se a origin devolver 5xx, o CU é devolvido ao bucket. O cliente não paga por
+5. Se a origin devolver 5xx, o créditos é devolvido ao bucket. O cliente não paga por
    falha nossa.
 
 ### Cota esgotada, agente autônomo
 
 1. Bucket vazio e saldo de crédito zero.
-2. Gateway calcula o preço (`pack_cu` ao preço base × multiplicador de abuso),
+2. Gateway calcula o preço (`pack_credits` ao preço base × multiplicador de abuso),
    cria uma offer e responde:
 
    ```
@@ -171,7 +171,7 @@ Aplicação Next que serve:
 3. O agente escolhe o item `exact` do `accepts`, assina e repete a requisição com
    `PAYMENT-SIGNATURE`.
 4. Gateway revalida os termos contra a política, chama `/verify`, chama `/settle`,
-   credita `pack_cu` no ledger e **só então** executa a requisição.
+   credita `pack_credits` no ledger e **só então** executa a requisição.
 5. Resposta 200 com `PAYMENT-RESPONSE` (recibo da liquidação) e saldo restante.
 
 Importante: o pagamento compra um **pacote de crédito**, não uma única
@@ -201,7 +201,7 @@ awall-x402/
 │   ├── origin-demo/      API protegida de exemplo (catálogo + rota medida)
 │   └── agent-m2m/        agente autônomo com carteira, usa @x402/fetch
 ├── packages/
-│   ├── policy/           parser do YAML, cálculo de CU, preço e multiplicador
+│   ├── policy/           parser do YAML, cálculo de créditos, preço e multiplicador
 │   ├── ledger/           Postgres + Drizzle, ledger e idempotência
 │   └── pix/              scheme `pix`: construção dos termos, adapter AbacatePay
 ├── docs/
@@ -251,7 +251,7 @@ Stellar própria sem escrever a verificação à mão.
   as *auth entries* da invocação Soroban — não gasta sequence number, o que
   permite várias liquidações do mesmo agente por ledger.
 - **Só o scheme `exact`.** Em Stellar não existe binding para `upto` nem
-  `auth-capture`. A medição por consumo fica no ledger de CU, off-chain, que é onde
+  `auth-capture`. A medição por consumo fica no ledger de créditos, off-chain, que é onde
   ela já estava no desenho.
 - **402 com corpo JSON além do header.** A especificação deixa o corpo a critério
   do servidor; repetir os termos em JSON ajuda depuração e apresentação.

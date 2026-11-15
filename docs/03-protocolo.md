@@ -49,7 +49,7 @@ Content-Type: application/json
 PAYMENT-REQUIRED: eyJ4NDAyVmVyc2lvbiI6Miwi...
 Retry-After: 2
 X-AWall-Identity: idt_7Zq...
-X-AWall-Cost-CU: 2
+X-AWall-Cost-Credits: 2
 X-AWall-Credits-Remaining: 0
 X-AWall-Abuse-Score: 0.18
 X-AWall-Price-Multiplier: 1.36
@@ -63,7 +63,7 @@ Objeto `PaymentRequired` (o mesmo que vai em base64 no header):
   "error": "Cota gratuita esgotada. Pague para continuar.",
   "resource": {
     "url": "https://api.exemplo.com/v1/search?q=camera",
-    "description": "Pacote de 10000 compute units na API protegida",
+    "description": "Pacote de 10000 créditos na API protegida",
     "mimeType": "application/json",
     "serviceName": "AWall Demo API",
     "tags": ["search", "catalog"],
@@ -79,7 +79,7 @@ Objeto `PaymentRequired` (o mesmo que vai em base64 no header):
       "maxTimeoutSeconds": 60,
       "extra": {
         "areFeesSponsored": true,
-        "packCu": 10000,
+        "packCredits": 10000,
         "offerId": "ofr_01JDX7..."
       }
     },
@@ -93,7 +93,7 @@ Objeto `PaymentRequired` (o mesmo que vai em base64 no header):
       "extra": {
         "checkoutUrl": "https://awall.demo/pay/ofr_01JDX7...",
         "statusUrl": "https://api.awall.demo/awall/offers/ofr_01JDX7...",
-        "packCu": 10000,
+        "packCredits": 10000,
         "offerId": "ofr_01JDX7..."
       }
     }
@@ -172,7 +172,7 @@ O gateway então:
 2. `POST /verify` no facilitator com `PaymentPayload` + `PaymentRequirements`.
 3. `POST /settle` no facilitator.
 4. Grava o pagamento com chave de idempotência igual ao hash da transação e
-   credita `packCu` no ledger, na mesma transação de banco.
+   credita `packCredits` no ledger, na mesma transação de banco.
 5. Executa a requisição na origin e responde 200 com:
 
 ```
@@ -229,7 +229,7 @@ O item `pix` não é liquidável pelo cliente de forma autônoma. O fluxo é:
    gateway serve a própria página de paywall em vez do 402 cru.
 2. Agente faz polling em `extra.statusUrl`:
    - `202 Accepted` com `{"status":"pending"}` enquanto não pago;
-   - `200 OK` com `{"status":"paid","creditedCu":10000}` quando confirmado.
+   - `200 OK` com `{"status":"paid","creditedCredits":10000}` quando confirmado.
 3. Confirmado, o agente repete a requisição original sem nenhum header de
    pagamento. O crédito já está na identidade dele.
 
@@ -259,13 +259,13 @@ pelo consumo real) e `auth-capture` têm binding só para EVM, e no caso do `upt
 também para SVM. O facilitator público confirma isso no `/supported`.
 
 Isso não tira nenhuma capacidade do AWall, porque a medição já é feita fora da
-cadeia: o pagamento compra um pacote de compute units, e cada rota debita o custo
-dela do pacote. Uma rota de inferência debita 50 CU; uma busca debita 1 CU. O
+cadeia: o pagamento compra um pacote de créditos, e cada rota debita o custo
+dela do pacote. Uma rota de inferência debita 50 créditos; uma busca debita 1 crédito. O
 efeito para o cliente é cobrança por consumo real, com uma liquidação a cada
 milhares de requisições em vez de uma por requisição.
 
 Consequência prática no plano: a flag `metered: true` da política deixa de
-significar "usa o scheme `upto`" e passa a significar "o custo em CU é calculado
+significar "usa o scheme `upto`" e passa a significar "o custo em créditos é calculado
 depois da resposta, a partir da medição da origin" (tokens gerados, bytes
 transferidos). Desaparece um risco de implementação do roadmap.
 

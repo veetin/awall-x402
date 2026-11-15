@@ -18,7 +18,7 @@ Quem consome a API.
 | `wallet` | text null | endereço Stellar, quando conhecido: `G…`/`C…` (56 chars) ou `M…` muxed (69) |
 | `fingerprint` | text null | hash de IP + ASN + User-Agent |
 | `abuse_score` | real | 0..1, média móvel exponencial |
-| `cu_balance` | bigint | saldo materializado, atualizado só com lançamento |
+| `credit_balance` | bigint | saldo materializado, atualizado só com lançamento |
 | `first_seen_at` | timestamptz | |
 | `last_seen_at` | timestamptz | |
 
@@ -38,7 +38,7 @@ Uma linha por requisição. É a fonte do dashboard e da métrica de impacto.
 | `identity_id` | text FK | |
 | `method` | text | |
 | `route` | text | padrão casado da política, não o path cru |
-| `cu` | integer | custo cobrado |
+| `credits` | integer | custo cobrado |
 | `decision` | text | `allow_free` \| `allow_credit` \| `payment_required` \| `refunded` |
 | `origin_status` | integer null | status devolvido pela origin |
 | `latency_ms` | integer null | |
@@ -58,7 +58,7 @@ Termos de pagamento emitidos num 402. Vive por 15 minutos.
 | --- | --- | --- |
 | `id` | text PK | `ofr_` + nanoid, aparece em `extra.offerId` |
 | `identity_id` | text FK | a quem o crédito será dado |
-| `pack_cu` | integer | CU que o pagamento compra |
+| `pack_credits` | integer | créditos que o pagamento compra |
 | `price_usdc_atomic` | text | string, unidades atômicas com **7 decimais** (Stellar), evita float |
 | `price_brl_cents` | integer | |
 | `multiplier` | real | multiplicador de abuso aplicado |
@@ -106,7 +106,7 @@ mesma do processamento original, sem crédito novo.
 | --- | --- | --- |
 | `id` | bigserial PK | |
 | `identity_id` | text FK | |
-| `delta_cu` | bigint | positivo em crédito, negativo em débito |
+| `delta_credits` | bigint | positivo em crédito, negativo em débito |
 | `reason` | text | `grant` \| `debit` \| `refund` \| `expiry` |
 | `payment_id` | text null FK | preenchido em `grant` |
 | `usage_event_id` | bigint null FK | preenchido em `debit` e `refund` |
@@ -114,7 +114,7 @@ mesma do processamento original, sem crédito novo.
 | `created_at` | timestamptz | |
 
 Invariante verificável por teste: para toda identidade,
-`sum(delta_cu) = identities.cu_balance`, e o `balance_after` do último lançamento
+`sum(delta_credits) = identities.credit_balance`, e o `balance_after` do último lançamento
 é igual ao saldo. Um teste de propriedade sobre essa invariante vale mais que
 qualquer teste de unidade do ledger.
 
@@ -124,10 +124,10 @@ qualquer teste de unidade do ledger.
 
 ```sql
 BEGIN;
-SELECT cu_balance FROM identities WHERE id = $1 FOR UPDATE;
--- se cu_balance < cu: ROLLBACK e emite 402
-UPDATE identities SET cu_balance = cu_balance - $2 WHERE id = $1;
-INSERT INTO credit_ledger (identity_id, delta_cu, reason, usage_event_id, balance_after) ...;
+SELECT credit_balance FROM identities WHERE id = $1 FOR UPDATE;
+-- se credit_balance < custo da rota: ROLLBACK e emite 402
+UPDATE identities SET credit_balance = credit_balance - $2 WHERE id = $1;
+INSERT INTO credit_ledger (identity_id, delta_credits, reason, usage_event_id, balance_after) ...;
 COMMIT;
 ```
 
@@ -141,7 +141,7 @@ BEGIN;
 INSERT INTO payments (...) ON CONFLICT (idempotency_key) DO NOTHING RETURNING id;
 -- nenhuma linha retornada: pagamento já processado, encerra sem creditar
 UPDATE offers SET status = 'paid' WHERE id = $1 AND status = 'pending';
-UPDATE identities SET cu_balance = cu_balance + $2 WHERE id = $3;
+UPDATE identities SET credit_balance = credit_balance + $2 WHERE id = $3;
 INSERT INTO credit_ledger (..., reason = 'grant', payment_id = $4, ...);
 COMMIT;
 ```
@@ -163,5 +163,5 @@ o `usage_event`. O cliente não paga por falha do servidor.
 ## Retenção
 
 `usage_events` cresce rápido. Para o MVP, retenção de 7 dias com job de limpeza;
-agregados por hora em `usage_rollups` (identidade, rota, hora, contagens, CU, CU
+agregados por hora em `usage_rollups` (identidade, rota, hora, contagens, créditos, créditos
 pago) alimentam o dashboard histórico.

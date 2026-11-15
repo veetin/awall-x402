@@ -80,8 +80,8 @@ O dashboard mede exatamente o que a proposta promete:
 - **Requisições recuperadas**: quantas requisições teriam sido `429` e foram
   atendidas após pagamento. É a receita que o rate limit descartava.
 - **Receita por trilho**: total em USDC (M2M) e em BRL (Pix).
-- **Custo de infraestrutura coberto**: estimativa de custo por unidade de compute
-  versus receita arrecadada no período.
+- **Custo de infraestrutura coberto**: estimativa de custo de infraestrutura por
+  crédito consumido versus receita arrecadada no período.
 - **Escore de abuso e preço médio**: mostra o multiplicador agindo sobre os piores
   consumidores.
 

@@ -35,7 +35,8 @@ Quebrar uma destas é bug, não escolha de estilo.
 1. **Dinheiro nunca é float.** Sempre inteiro ou string de inteiro, em unidades
    atômicas (cripto) ou centavos (BRL).
 2. **USDC na Stellar tem 7 decimais.** 0,50 USDC são `"5000000"`. Exemplo copiado
-   de EVM (6 decimais) erra o valor em 100×.
+   de EVM (6 decimais) erra o valor em 10×. Vale para comentário e documentação
+   também, não só para código.
 3. **Nada que vem do cliente decide valor.** O objeto `accepted` do
    `PAYMENT-SIGNATURE` é verificado contra a política e contra a offer gravada no
    banco. O valor cobrado vem do banco, nunca do payload.
@@ -45,13 +46,15 @@ Quebrar uma destas é bug, não escolha de estilo.
 5. **Webhook é gatilho, não fonte de verdade.** Validar assinatura e confirmar o
    status consultando a API do provedor antes de creditar.
 6. **Crédito é ledger append-only.** Nenhum caminho de código escreve
-   `identities.cu_balance` sem inserir o lançamento correspondente em
+   `identities.credit_balance` sem inserir o lançamento correspondente em
    `credit_ledger` na mesma transação.
 7. **Cota esgotada responde 402, nunca 429.** É a tese do projeto.
-8. **Falha da origin (5xx) estorna o CU.** Cliente não paga pelo nosso erro.
+8. **Falha da origin (5xx) estorna o créditos.** Cliente não paga pelo nosso erro.
 9. **Segredo nunca entra no repositório.** Só `.env.example` com as chaves
    documentadas e valores vazios.
 10. **Chave de API só persiste como hash** (SHA-256). Nunca em claro, nunca em log.
+11. **A unidade de consumo chama `credits`** (em português, "créditos"). Nunca
+    `CU`, nunca "compute units": o nome anterior foi abandonado de propósito.
 
 ## Fatos de rede (não adivinhe, use estes)
 
@@ -72,7 +75,7 @@ Detalhes que causam falha silenciosa:
 - O cliente assina **auth entries** da invocação Soroban, não a transação inteira.
   Expiração em `currentLedger + ceil(maxTimeoutSeconds / ~5s)`.
 - Em Stellar só existe o scheme **`exact`**. `upto` e `auth-capture` são EVM (o
-  `upto` também SVM). Medição de consumo é off-chain, no ledger de compute units.
+  `upto` também SVM). Medição de consumo é off-chain, no ledger de créditos.
 
 ## Stack e dependências
 
@@ -94,11 +97,11 @@ validação ou de utilidades sem necessidade concreta.
 ## Layout
 
 ```
-apps/gateway/      proxy, política, ledger, orquestração de pagamento
+apps/gateway/      proxy, política, ledger, orquestração de pagamento (:8402)
 apps/console/      Next: dashboard e paywall
 apps/origin-demo/  API protegida de exemplo
 apps/agent-m2m/    agente autônomo com carteira Stellar de testnet
-packages/policy/   parser do YAML, CU, preço, multiplicador de abuso
+packages/policy/   parser do YAML, créditos, preço, multiplicador de abuso
 packages/ledger/   Postgres + Drizzle, ledger e idempotência
 packages/pix/      scheme pix: termos, adapter AbacatePay
 docs/              desenho (pt-BR)
@@ -126,26 +129,24 @@ pagamento não vai para `apps/gateway` se couber em `packages/pix` ou
 
 ## Comandos
 
-Ainda não existem: o scaffold não foi criado. Quando criar, use exatamente estes
-nomes nos scripts raiz, e atualize esta seção se mudar:
-
 ```
 pnpm install
-pnpm dev          # gateway + origin-demo + console
-pnpm test         # vitest
+pnpm dev              # gateway (:8402) + origin-demo (:8787), em paralelo
+pnpm test             # vitest em todos os pacotes
 pnpm typecheck
-pnpm lint
-pnpm db:push      # drizzle
-./scripts/demo.sh # fluxo ponta a ponta
+./scripts/demo.sh     # fluxo ponta a ponta: cota gratuita, 402, offer, estorno
 ```
+
+`pnpm` vem do corepack (`corepack enable pnpm`). `pnpm db:push` e `pnpm lint`
+ainda não existem: chegam com o ledger e com o linter.
 
 ## Testes mínimos por área
 
 - Conversão de preço para unidades atômicas (7 decimais) — o erro mais provável do
   projeto.
-- Token bucket e cálculo de CU por rota.
+- Token bucket e cálculo de créditos por rota.
 - Codificação e decodificação base64 dos três headers x402.
-- Invariante do ledger: `sum(delta_cu) = identities.cu_balance` para toda
+- Invariante do ledger: `sum(delta_credits) = identities.credit_balance` para toda
   identidade.
 - Webhook duplicado não credita duas vezes.
 - Cliente adulterando `amount` no `accepted` é rejeitado.
@@ -154,7 +155,7 @@ pnpm db:push      # drizzle
 ## O que não fazer
 
 - Não aumentar escopo. Se achou algo fora do roadmap, registre e siga.
-- Não trocar o modelo de cobrança (pacote de compute units) por cobrança por
+- Não trocar o modelo de cobrança (pacote de créditos) por cobrança por
   requisição.
 - Não usar ativo classic da Stellar direto; o binding exige SEP-41 em Soroban.
 - Não implementar `upto` ou `auth-capture` em Stellar: não existe binding.

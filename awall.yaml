@@ -1,0 +1,23 @@
+origin: http://localhost:8787
+
+free_tier:
+  window_seconds: 60
+  credits: 100
+  burst: 30
+
+pricing:
+  pack_credits: 10000
+  price_usdc: "0.50"
+  price_brl_cents: 290
+  max_multiplier: 3.0
+
+routes:
+  - match: "GET /v1/search"
+    credits: 1
+  - match: "GET /v1/items/*"
+    credits: 2
+  - match: "GET /v1/flaky"
+    credits: 5
+  - match: "POST /v1/completions"
+    credits: 50
+    metered: true

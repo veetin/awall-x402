@@ -1,0 +1,16 @@
+origin: http://127.0.0.1:59999
+
+free_tier:
+  window_seconds: 60
+  credits: 4
+  burst: 0
+
+pricing:
+  pack_credits: 10000
+  price_usdc: "0.50"
+  price_brl_cents: 290
+  max_multiplier: 3.0
+
+routes:
+  - match: "GET /v1/search"
+    credits: 2

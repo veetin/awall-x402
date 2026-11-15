@@ -14,7 +14,7 @@ e testar. Boilerplate open source já público é exceção permitida.
 | --- | --- | --- |
 | 15/11 | Esqueleto do monorepo; `origin-demo` no ar; proxy repassando tráfego; policy YAML carregando; token bucket por identidade. **Em paralelo: setup Stellar** — duas contas de testnet pelo friendbot, trustline de USDC nas duas, USDC de testnet na conta do agente, e probe no `/supported` do facilitator confirmando `exact` em `stellar:testnet` | `curl` atravessa o gateway e o 101º pedido no minuto recebe 402 com corpo JSON; uma transferência manual de USDC entre as duas contas funciona |
 | 16-17/11 | Trilho M2M completo em Stellar testnet: `PaymentRequired` com `areFeesSponsored`, revalidação dos termos, `/verify`, `/settle`, crédito | `apps/agent-m2m` roda em loop, toma 402, assina auth entries, paga e continua sem intervenção |
-| 18-19/11 | Ledger em Postgres: identidades, offers, payments, lançamentos, idempotência, estorno de 5xx | teste de invariante `sum(delta_cu) = cu_balance` passa; webhook duplicado não credita duas vezes |
+| 18-19/11 | Ledger em Postgres: identidades, offers, payments, lançamentos, idempotência, estorno de 5xx | teste de invariante `sum(delta_credits) = credit_balance` passa; webhook duplicado não credita duas vezes |
 | 20-21/11 | Trilho Pix: offer com cobrança AbacatePay, página de paywall, webhook, polling de status | humano paga Pix no ambiente de teste e o agente assistido retoma sozinho |
 | 22/11 | `specs/scheme_pix.md` escrito no formato do template oficial de schemes | documento completo, com fluxo, campos obrigatórios e considerações de segurança |
 | 23-24/11 | Escore de abuso e preço dinâmico; headers informativos; recibos | duas identidades com padrões diferentes recebem preços diferentes, visível no dashboard |
@@ -29,21 +29,21 @@ e testar. Boilerplate open source já público é exceção permitida.
 A ordem importa, porque cada etapa é demonstrável sozinha:
 
 1. Proxy burro (repassa tudo).
-2. Política + custo em CU + token bucket → 402 sem pagamento ainda (corpo JSON).
+2. Política + custo em créditos + token bucket → 402 sem pagamento ainda (corpo JSON).
 3. `PaymentRequired` correto no header, offer no banco.
-4. Verificação e liquidação `exact`, crédito, débito de CU.
+4. Verificação e liquidação `exact`, crédito, débito de créditos.
 5. Ledger persistido e idempotência.
 6. Trilho Pix sobre a mesma offer.
 7. Escore de abuso multiplicando o preço.
 8. Observabilidade (SSE, recibos, dashboard).
-9. Rota medida: custo em CU calculado a partir da medição da origin.
+9. Rota medida: custo em créditos calculado a partir da medição da origin.
 
 ## Cortes de escopo, em ordem de sacrifício
 
 Se o cronograma apertar, corta de cima para baixo. Cada corte é uma decisão
 consciente, não uma falha:
 
-1. **Rota medida** (`metered: true`, custo em CU calculado após a resposta). O
+1. **Rota medida** (`metered: true`, custo em créditos calculado após a resposta). O
    custo fixo por rota já sustenta a narrativa inteira.
 2. **Preço dinâmico por escore de abuso** → multiplicador fixo por tier. O escore
    continua sendo calculado e exibido, só não altera preço.
@@ -57,7 +57,7 @@ stablecoin, trilho Pix para agente assistido, ledger com idempotência.
 
 ## Testes mínimos
 
-- Unidade: cálculo de CU por rota, token bucket, multiplicador de abuso,
+- Unidade: cálculo de créditos por rota, token bucket, multiplicador de abuso,
   codificação e decodificação base64 dos três headers, e conversão de preço para
   unidades atômicas com 7 decimais (o erro de decimais é o mais provável do
   projeto).
