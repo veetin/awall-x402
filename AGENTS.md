@@ -186,23 +186,24 @@ armadilha envolvida.
 
 ### Rodapé
 
-- `Refs: VEE-12` quando o commit avança a issue.
-- `Closes VEE-12` quando a conclui — o Linear fecha a issue ao mergear.
+- `Refs: #12` quando o commit avança a issue.
+- `Closes #12` quando a conclui. O GitHub fecha a issue sozinho quando o commit
+  ou o PR entra em `master`, então só use `Closes` quando a issue realmente
+  termina ali.
 - Atribuição de agente, quando houver, vai por último.
 
 ### Branches
 
 ```
-<tipo>/vee-<número>-<slug-curto>
+<tipo>/<número-da-issue>-<slug-curto>
 ```
 
-Exemplos: `feat/vee-1-settlement-no-gateway`, `fix/vee-12-settlement-pending`,
-`docs/vee-8-console-scope`.
+Exemplos: `feat/1-settlement-no-gateway`, `fix/12-settlement-pending`,
+`docs/8-console-scope`.
 
-O identificador da issue no meio do nome é o que faz o Linear ligar branch, PR e
-issue automaticamente. O Linear sugere `feature/vee-1-...`; aqui usamos o mesmo
-vocabulário dos commits (`feat`, `fix`, `chore`…), e o que importa para a ligação
-é o `vee-<número>`.
+O número é o da issue no GitHub, e serve para ligar branch, PR e issue de olho —
+o fechamento automático vem do `Closes #n` no commit ou no PR, não do nome da
+branch.
 
 Sem issue (coisa pequena e isolada), use `chore/<slug>`. Nunca trabalhe direto em
 `master`.
@@ -215,7 +216,12 @@ assunto precisa de "e", provavelmente são dois commits.
 ### Pull request
 
 Título no mesmo formato do assunto do commit. Corpo diz o que muda, o que foi
-verificado e o que ficou de fora. O rodapé cita a issue (`Closes VEE-12`).
+verificado e o que ficou de fora. O rodapé cita a issue (`Closes #12`).
+
+O rastreamento das tarefas fica em
+[Issues](https://github.com/veetin/awall-x402/issues) e no Project
+[AWall x402](https://github.com/users/veetin/projects/1), com prioridade em
+rótulo (`p0-urgent` a `p3-low`) e área igual ao nome do pacote.
 
 ## Comandos
 
