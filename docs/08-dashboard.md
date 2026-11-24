@@ -43,8 +43,11 @@ está consumindo o quê".
 
 - Requisições recuperadas: quantas teriam sido `429` e foram atendidas após
   pagamento. É a métrica central do projeto.
-- Receita por trilho: total em USDC (Stellar) e em BRL (Pix), com a contagem de
-  liquidações.
+- Receita por ativo: total em USDC, em XLM (ambos no trilho `exact`) e em BRL
+  (Pix), com a contagem de liquidações. Cada ativo tem seu próprio total; somar
+  unidades atômicas de USDC com as de XLM daria um número sem significado, mesmo
+  tendo os dois 7 decimais. `GET /awall/stats/summary` devolve `rail`, `asset` e
+  o `code` legível (`USDC`, `XLM`, `BRL`) por linha.
 - Custo de infraestrutura coberto: estimativa de custo por crédito consumido
   contra a receita do período.
 - Ticket médio e multiplicador de abuso médio.

@@ -181,21 +181,29 @@ export async function summarizeUsage(
   }));
 }
 
-export type RevenueRow = { rail: string; count: number; amount: string };
+export type RevenueRow = { rail: string; asset: string; count: number; amount: string };
 
-/** Settled payments in the window, summed per rail. Amounts stay integer strings. */
+/**
+ * Settled payments in the window, summed per rail **and asset**.
+ *
+ * Grouping by rail alone would add XLM atomic units to USDC atomic units: both
+ * ride the `exact` rail and both have 7 decimals, so the sum looks plausible
+ * and means nothing. Amounts stay integer strings.
+ */
 export async function summarizeRevenue(db: Database, from: Date): Promise<RevenueRow[]> {
   const rows = await db
     .select({
       rail: payments.rail,
+      asset: payments.asset,
       count: sql<number>`count(*)::int`,
       amount: sql<string>`coalesce(sum(${payments.amount}::numeric), 0)::text`,
     })
     .from(payments)
     .where(and(eq(payments.status, "settled"), gte(payments.createdAt, from)))
-    .groupBy(payments.rail);
+    .groupBy(payments.rail, payments.asset);
   return rows.map((row) => ({
     rail: row.rail,
+    asset: row.asset,
     count: Number(row.count),
     amount: String(row.amount),
   }));

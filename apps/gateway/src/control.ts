@@ -143,7 +143,10 @@ export function mountControl(app: Hono, deps: ControlDeps): void {
     const window = c.req.query("window") ?? "1h";
     const from = windowStart(window);
     const usage = await summarizeUsage(deps.db, from);
-    const revenue = await summarizeRevenue(deps.db, from);
+    const revenue = (await summarizeRevenue(deps.db, from)).map((row) => ({
+      ...row,
+      code: assetCode(row, deps.config),
+    }));
     const byDecision: Record<string, number> = {};
     let credits = 0;
     for (const row of usage) {
@@ -323,6 +326,19 @@ export function mountControl(app: Hono, deps: ControlDeps): void {
       database: "ok",
     });
   });
+}
+
+/**
+ * Readable code of a revenue row's asset.
+ *
+ * The ledger stores the SEP-41 contract, which says nothing to a reader. The
+ * console groups the cards by this code, so USDC and XLM never share a total.
+ */
+function assetCode(row: { rail: string; asset: string }, config: GatewayConfig): string {
+  if (row.rail === "pix") return "BRL";
+  if (row.asset === config.asset) return "USDC";
+  if (row.asset === config.xlmAsset) return "XLM";
+  return row.asset;
 }
 
 function isPublicControl(path: string, prefix: string, method: string): boolean {

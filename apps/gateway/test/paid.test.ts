@@ -390,6 +390,58 @@ describe("pix after the deadline", () => {
   });
 });
 
+describe("revenue", () => {
+  it("keeps USDC and XLM totals apart on the same rail", async () => {
+    const db = await createTestDb();
+    const XLM = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+    const app = createApp(config, policySchema.parse(basePolicy()), { db });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+    const first = await app.request("/v1/search", { headers: { "x-api-key": "two-assets" } });
+    const identityId = first.headers.get("X-AWall-Identity") ?? "";
+
+    const newPaidOffer = async (asset: string, amount: string, key: string) => {
+      const offer = await createOffer(db, {
+        identityId,
+        packCredits: 10,
+        priceUsdcAtomic: "5000000",
+        priceXlmAtomic: "50000000",
+        priceBrlCents: 290,
+        multiplier: 1,
+        network: "stellar:testnet",
+        asset: ASSET,
+        xlmAsset: XLM,
+        payTo: config.payTo,
+        rails: ["exact"],
+      });
+      await grantCredits(db, {
+        identityId,
+        offerId: offer.id,
+        credits: 10,
+        payment: {
+          rail: "exact",
+          amount,
+          asset,
+          network: "stellar:testnet",
+          idempotencyKey: key,
+        },
+      });
+    };
+    await newPaidOffer(ASSET, "5000000", "usdc-1");
+    await newPaidOffer(XLM, "50000000", "xlm-1");
+
+    const summary = await app.request("/awall/stats/summary?window=1h", {
+      headers: { authorization: "Bearer admin-secret" },
+    });
+    expect(summary.status).toBe(200);
+    const body = (await summary.json()) as {
+      revenue: { rail: string; code: string; amount: string }[];
+    };
+    const byCode = Object.fromEntries(body.revenue.map((row) => [row.code, row.amount]));
+    expect(byCode).toMatchObject({ USDC: "5000000", XLM: "50000000" });
+    expect(body.revenue.every((row) => row.rail === "exact")).toBe(true);
+  });
+});
+
 describe("control plane", () => {
   it("requires the admin token and applies a policy without a restart", async () => {
     const db = await createTestDb();
