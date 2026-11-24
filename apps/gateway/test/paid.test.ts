@@ -12,6 +12,7 @@ import { AbacatePayClient } from "@awall/pix";
 import { policySchema } from "@awall/policy";
 import { FacilitatorClient, decodeHeader, encodeHeader } from "@awall/settlement";
 import { createApp } from "../src/app.js";
+import { PIX_LATE_CONFIRM_MS } from "../src/pix-flow.js";
 import { readConfig } from "../src/config.js";
 import { createTestDb } from "./db.js";
 
@@ -307,6 +308,85 @@ describe("pix", () => {
     const status = await app.request(`/awall/offers/${offerId}`);
     expect(status.status).toBe(200);
     await expect(status.json()).resolves.toMatchObject({ status: "paid", creditedCredits: 10000 });
+  });
+});
+
+describe("pix after the deadline", () => {
+  it("credits a charge paid in time whose webhook never arrived", async () => {
+    const db = await createTestDb();
+    const pix = new AbacatePayClient({
+      apiKey: "key",
+      baseUrl: "http://pix.test",
+      fetch: async () => json({ success: true, data: { id: "pix_late", status: "PAID", expiresAt: null } }),
+    });
+    const app = createApp(config, policySchema.parse(basePolicy()), { db, pix });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+    const first = await app.request("/v1/search", { headers: { "x-api-key": "pix-late" } });
+    const identityId = first.headers.get("X-AWall-Identity") ?? "";
+
+    const offer = await createOffer(db, {
+      identityId,
+      packCredits: 10000,
+      priceUsdcAtomic: "5000000",
+      priceXlmAtomic: "50000000",
+      priceBrlCents: 290,
+      multiplier: 1,
+      network: "stellar:testnet",
+      asset: ASSET,
+      xlmAsset: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      payTo: config.payTo,
+      rails: ["pix"],
+      pixChargeId: "pix_late",
+      pixBrCode: "000201",
+      expiresAt: new Date(Date.now() - 60_000),
+    });
+
+    const status = await app.request(`/awall/offers/${offer.id}`);
+    expect(status.status).toBe(200);
+    await expect(status.json()).resolves.toMatchObject({ status: "paid", creditedCredits: 10000 });
+    expect(await getBalance(db, identityId)).toBe(10000n);
+
+    const again = await app.request(`/awall/offers/${offer.id}`);
+    expect(again.status).toBe(200);
+    expect(await getBalance(db, identityId)).toBe(10000n);
+  });
+
+  it("stops asking the provider once the grace window is over", async () => {
+    const db = await createTestDb();
+    let calls = 0;
+    const pix = new AbacatePayClient({
+      apiKey: "key",
+      baseUrl: "http://pix.test",
+      fetch: async () => {
+        calls += 1;
+        return json({ success: true, data: { id: "pix_old", status: "PAID", expiresAt: null } });
+      },
+    });
+    const app = createApp(config, policySchema.parse(basePolicy()), { db, pix });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+    const first = await app.request("/v1/search", { headers: { "x-api-key": "pix-old" } });
+    const identityId = first.headers.get("X-AWall-Identity") ?? "";
+
+    const offer = await createOffer(db, {
+      identityId,
+      packCredits: 10000,
+      priceUsdcAtomic: "5000000",
+      priceXlmAtomic: "50000000",
+      priceBrlCents: 290,
+      multiplier: 1,
+      network: "stellar:testnet",
+      asset: ASSET,
+      xlmAsset: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      payTo: config.payTo,
+      rails: ["pix"],
+      pixChargeId: "pix_old",
+      expiresAt: new Date(Date.now() - PIX_LATE_CONFIRM_MS - 60_000),
+    });
+
+    const status = await app.request(`/awall/offers/${offer.id}`);
+    expect(status.status).toBe(410);
+    expect(calls).toBe(0);
+    expect(await getBalance(db, identityId)).toBe(0n);
   });
 });
 

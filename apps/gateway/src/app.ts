@@ -138,7 +138,7 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
   mountControl(app, { db, config, holder, bus, facilitator, pix });
 
   app.get(`${prefix}/offers/:id`, async (c) => {
-    const result = await offerStatus(db, pix, c.req.param("id"));
+    const result = await offerStatus(db, pix, c.req.param("id"), now());
     return c.json(result.body, result.status as 200);
   });
 

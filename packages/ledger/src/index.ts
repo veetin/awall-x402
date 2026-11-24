@@ -61,6 +61,7 @@ export {
   createOffer,
   getOffer,
   markOfferPaid,
+  markOfferPaidLate,
   attachPixCharge,
   findOfferByPixCharge,
   closeOffer,

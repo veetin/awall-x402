@@ -4,6 +4,7 @@ import {
   findOfferByPixCharge,
   getOffer,
   grantCredits,
+  markOfferPaidLate,
   type Database,
   type Offer,
 } from "@awall/ledger";
@@ -53,6 +54,16 @@ export async function createPixCharge(
   return updated ?? offer;
 }
 
+/**
+ * How long after an offer's deadline the poll still asks the provider.
+ *
+ * The charge itself lives 15 minutes, so nothing new can be paid after that.
+ * The window exists for the payment that happened in time and whose webhook was
+ * lost, and it bounds how long this public endpoint can call the provider for
+ * one dead offer.
+ */
+export const PIX_LATE_CONFIRM_MS = 24 * 60 * 60 * 1000;
+
 export type PixCredit =
   | { ok: true; credited: boolean; credits: number }
   | { ok: false; status: number; error: string };
@@ -62,6 +73,10 @@ export type PixCredit =
  *
  * The webhook body is not a source of truth: `confirmPaid` asks the provider.
  * The idempotency key is `pix:<chargeId>`, so a duplicate delivery is a no-op.
+ *
+ * A charge paid near the deadline belongs to an offer the server may already
+ * have expired. `grantCredits` only moves a `pending` offer, so the offer is
+ * moved separately: the money arrived and the pack is owed either way.
  *
  * @param db - Ledger connection.
  * @param pix - AbacatePay client.
@@ -107,6 +122,7 @@ export async function creditPixCharge(
       status: "settled",
     },
   });
+  if (offer.status !== "paid") await markOfferPaidLate(db, offer.id);
   return { ok: true, credited: granted.credited, credits: offer.packCredits };
 }
 
@@ -143,24 +159,31 @@ export async function handlePixWebhook(
 }
 
 /**
- * Public offer status. When a Pix charge is still pending, ask the provider
- * so an agent polling `statusUrl` resumes even if the webhook never arrived.
+ * Public offer status. When a Pix charge has not been credited yet, ask the
+ * provider so an agent polling `statusUrl` resumes even if the webhook never
+ * arrived. An expired offer is asked about too: this poll is the only fallback
+ * when the webhook is lost, and a payment made before the deadline can be
+ * confirmed after it.
  *
  * @param db - Ledger connection.
  * @param pix - AbacatePay client, or null.
  * @param id - Offer id.
+ * @param now - Clock override, milliseconds.
  * @returns Status code and body. Never includes the identity.
  */
 export async function offerStatus(
   db: Database,
   pix: AbacatePayClient | null,
   id: string,
+  now: number = Date.now(),
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   let offer = await getOffer(db, id);
   if (!offer) return { status: 404, body: { error: "offer_not_found" } };
 
+  const expired = offer.status === "expired";
+  const withinGrace = now - offer.expiresAt.getTime() < PIX_LATE_CONFIRM_MS;
   if (
-    offer.status === "pending" &&
+    (offer.status === "pending" || (expired && withinGrace)) &&
     offer.pixChargeId &&
     pix &&
     !offer.pixChargeId.startsWith("local_")

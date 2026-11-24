@@ -250,9 +250,17 @@ O item `pix` não é liquidável pelo cliente de forma autônoma. O fluxo é:
    gateway serve a própria página de paywall em vez do 402 cru.
 2. Agente faz polling em `extra.statusUrl`:
    - `202 Accepted` com `{"status":"pending"}` enquanto não pago;
-   - `200 OK` com `{"status":"paid","creditedCredits":10000}` quando confirmado.
+   - `200 OK` com `{"status":"paid","creditedCredits":10000}` quando confirmado;
+   - `410 Gone` quando a offer morreu sem pagamento.
 3. Confirmado, o agente repete a requisição original sem nenhum header de
    pagamento. O crédito já está na identidade dele.
+
+O polling é o único caminho de recuperação quando o webhook se perde, então ele
+consulta o provedor por até 24 h depois do prazo da offer: a cobrança só vive 15
+minutos, mas a confirmação de um pagamento feito dentro do prazo pode chegar
+depois dele. Confirmado o pagamento, a offer vira `paid` mesmo tendo expirado — o
+prazo impede autorização nova, não desfaz dinheiro que entrou. Passadas as 24 h,
+o endpoint responde `410` sem chamar o provedor.
 
 A amarração entre offer e identidade é feita no momento do 402, então o pagamento
 do humano credita a identidade do agente que recebeu o 402 — sem o humano precisar
@@ -295,7 +303,7 @@ transferidos). Desaparece um risco de implementação do roadmap.
 | Método e rota | Função |
 | --- | --- |
 | `ANY /*` | proxy para a origin, com a política aplicada |
-| `GET /awall/offers/:id` | status da offer (202 pendente, 200 paga) |
+| `GET /awall/offers/:id` | status da offer (202 pendente, 200 paga, 410 morta) |
 | `POST /awall/webhooks/abacatepay` | confirmação de pagamento Pix, com validação de assinatura |
 | `GET /awall/receipts/:identityId` | recibos e extrato de crédito da identidade |
 | `GET /awall/stats/stream` | SSE de eventos para o dashboard |
