@@ -155,7 +155,9 @@ export async function settlePayment(
   }
 
   if (settled.value.status === "failed") {
-    const key = settled.value.transaction || `fail:${offer.id}:${settled.value.errorReason}`;
+    // Namespaced: a terminal failure must not take the transaction hash, or a
+    // later settle of the same hash would collide with it and never credit.
+    const key = `failed:${settled.value.transaction || offer.id}:${settled.value.errorReason}`;
     await grantCredits(db, {
       identityId: offer.identityId,
       offerId: offer.id,

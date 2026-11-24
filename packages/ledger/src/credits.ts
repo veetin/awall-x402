@@ -182,7 +182,7 @@ export async function grantCredits(db: Database, input: GrantInput): Promise<Gra
       .onConflictDoNothing({ target: payments.idempotencyKey })
       .returning({ id: payments.id });
 
-    if (!inserted) return replayGrant(tx, input.payment.idempotencyKey);
+    if (!inserted) return replayGrant(tx, input.payment.idempotencyKey, input.identityId);
     if (status !== "settled") {
       const balance = await balanceOf(tx, input.identityId);
       return {
@@ -226,8 +226,18 @@ export async function grantCredits(db: Database, input: GrantInput): Promise<Gra
   });
 }
 
-/** Read back what the first call with this idempotency key produced. */
-async function replayGrant(tx: Database, idempotencyKey: string): Promise<GrantResult> {
+/**
+ * Read back what the first call with this idempotency key produced.
+ *
+ * A payment that never credited - recorded as `pending` or `failed` - has no
+ * ledger entry. Its balance is the identity's current one, not zero: the caller
+ * puts that number in `X-AWall-Credits-Remaining`.
+ */
+async function replayGrant(
+  tx: Database,
+  idempotencyKey: string,
+  identityId: string,
+): Promise<GrantResult> {
   const [existing] = await tx
     .select({ id: payments.id })
     .from(payments)
@@ -242,7 +252,7 @@ async function replayGrant(tx: Database, idempotencyKey: string): Promise<GrantR
     paymentId: existing.id,
     credited: false,
     alreadyProcessed: true,
-    balanceAfter: entry?.balanceAfter ?? 0n,
+    balanceAfter: entry?.balanceAfter ?? (await balanceOf(tx, identityId)) ?? 0n,
     entryId: entry?.id ?? null,
   };
 }

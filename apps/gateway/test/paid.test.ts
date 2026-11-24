@@ -158,6 +158,38 @@ describe("settlement", () => {
     expect(await getBalance(db, id)).toBe(9998n);
   });
 
+  it("credits a transaction that settles after a terminal failure on the same hash", async () => {
+    const db = await createTestDb();
+    let mode: "failed" | "settled" = "failed";
+    const app = createApp(config, policySchema.parse(basePolicy()), {
+      db,
+      facilitator: facilitator((path) => {
+        if (path.endsWith("/verify")) return { isValid: true, payer: "GBUYER" };
+        if (mode === "failed") {
+          return {
+            success: false,
+            errorReason: "unexpected_settle_error",
+            transaction: TX,
+            network: "stellar:testnet",
+          };
+        }
+        return { success: true, transaction: TX, network: "stellar:testnet", payer: "GBUYER" };
+      }),
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
+    const { offerId, identityId, amount } = await exhaust(app);
+
+    const refused = await pay(app, offerId, amount);
+    expect(refused.status).toBe(402);
+    expect(await getBalance(db, identityId)).toBe(0n);
+
+    mode = "settled";
+    const paid = await pay(app, offerId, amount);
+    expect(paid.status).toBe(200);
+    expect(paid.headers.get("X-AWall-Credits-Remaining")).toBe("9998");
+    expect(await getBalance(db, identityId)).toBe(9998n);
+  });
+
   it("refuses an offer that belongs to another identity, before verify", async () => {
     const db = await createTestDb();
     const calls: string[] = [];
