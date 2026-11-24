@@ -158,6 +158,38 @@ describe("settlement", () => {
     expect(await getBalance(db, id)).toBe(9998n);
   });
 
+  it("refuses an offer that belongs to another identity, before verify", async () => {
+    const db = await createTestDb();
+    const calls: string[] = [];
+    const app = createApp(config, policySchema.parse(basePolicy()), {
+      db,
+      facilitator: facilitator((path) => {
+        calls.push(path);
+        if (path.endsWith("/verify")) return { isValid: true, payer: "GBUYER" };
+        return { success: true, transaction: TX, network: "stellar:testnet", payer: "GBUYER" };
+      }),
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
+    const mine = await exhaust(app, "owner");
+
+    const stolen = await app.request("/v1/search", {
+      headers: {
+        "x-api-key": "someone-else",
+        "payment-signature": signature(mine.offerId, mine.amount),
+      },
+    });
+    expect(stolen.status).toBe(402);
+    await expect(stolen.json()).resolves.toMatchObject({ error: "offer_identity_mismatch" });
+    expect(calls).toEqual([]);
+    expect(await getBalance(db, mine.identityId)).toBe(0n);
+
+    const owned = await app.request("/v1/search", {
+      headers: { "x-api-key": "owner", "payment-signature": signature(mine.offerId, mine.amount) },
+    });
+    expect(owned.status).toBe(200);
+    expect(await getBalance(db, mine.identityId)).toBe(9998n);
+  });
+
   it("serves from the credit balance once the free quota is gone", async () => {
     const db = await createTestDb();
     const app = createApp(config, policySchema.parse(basePolicy()), { db });

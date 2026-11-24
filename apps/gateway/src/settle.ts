@@ -41,15 +41,22 @@ export type SettleFailure = {
  * garbage, or returns `settlement_pending` never produces a credit and never
  * a 500: the caller turns the failure into a 402.
  *
+ * The offer must belong to the identity making the request. Otherwise the
+ * credits would land on another identity and this request would still be
+ * refused, so the payer would pay for nothing. The mismatch is refused before
+ * `/verify`, while the client still holds its money.
+ *
  * @param db - Ledger connection.
  * @param facilitator - Facilitator client, or null when none is configured.
  * @param header - Raw `PAYMENT-SIGNATURE` header.
+ * @param identityId - Identity of the request that carries the header.
  * @returns The credited offer, or a 402 reason.
  */
 export async function settlePayment(
   db: Database,
   facilitator: FacilitatorClient | null,
   header: string,
+  identityId: string,
 ): Promise<SettleSuccess | SettleFailure> {
   const decoded = decodePaymentPayload(header);
   if (!decoded.ok) {
@@ -70,6 +77,13 @@ export async function settlePayment(
   const offer = await getOffer(db, offerId);
   if (!offer) return fail("offer_not_found", "invalid_payment_requirements");
   if (offer.status === "expired") return fail("offer_expired", "invalid_payment_requirements");
+  if (offer.identityId !== identityId) {
+    return fail(
+      "offer_identity_mismatch",
+      "invalid_payment_requirements",
+      receipt(offer.network, "invalid_payment_requirements"),
+    );
+  }
 
   const expected = exactRequirementsForAsset(offer, payload.accepted.asset);
   if (!expected) {

@@ -234,7 +234,12 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
 
     let settled: SettleSuccess | undefined;
     if (!input.decide && c.req.header("payment-signature")) {
-      const result = await settlePayment(db, facilitator, c.req.header("payment-signature") ?? "");
+      const result = await settlePayment(
+        db,
+        facilitator,
+        c.req.header("payment-signature") ?? "",
+        identity.id,
+      );
       if (!result.ok) {
         rememberAbuse(
           identity.id,

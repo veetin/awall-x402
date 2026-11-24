@@ -215,6 +215,12 @@ Se a liquidação falhar, a resposta é outro 402 com `PAYMENT-RESPONSE` carrega
 a transação pode confirmar depois, e o gateway reconcilia pelo hash em vez de
 assumir falha.
 
+A offer precisa pertencer à identidade que manda o `PAYMENT-SIGNATURE`. Pagar a
+offer de outra identidade creditaria o pacote para ela e deixaria esta
+requisição sem crédito, então o gateway recusa com `error:
+offer_identity_mismatch` (`errorReason: invalid_payment_requirements`) **antes**
+de chamar `/verify`, enquanto o dinheiro ainda está com o cliente.
+
 ### O que o facilitator valida (e por que importa para nós)
 
 O binding Stellar impõe ao facilitator uma lista de verificações que o gateway
