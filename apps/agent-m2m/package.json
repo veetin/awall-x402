@@ -1,0 +1,21 @@
+{
+  "name": "@awall/agent-m2m",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx --env-file-if-exists=.env src/index.ts",
+    "dry-run": "tsx --env-file-if-exists=.env src/index.ts --dry-run",
+    "setup:testnet": "tsx --env-file-if-exists=.env scripts/setup-testnet.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^16.4.1",
+    "@x402/fetch": "^2.31.0",
+    "@x402/stellar": "^2.31.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
+  }
+}

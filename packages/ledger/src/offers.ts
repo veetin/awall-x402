@@ -13,15 +13,19 @@ export type CreateOfferInput = {
   identityId: string;
   /** Credits the payment buys. */
   packCredits: number;
-  /** Atomic units with 7 decimals (Stellar), as an integer string. */
+  /** Atomic units of USDC with 7 decimals, as an integer string. */
   priceUsdcAtomic: string;
+  /** Atomic units of XLM with 7 decimals, as an integer string. */
+  priceXlmAtomic: string;
   priceBrlCents: number;
   /** Abuse multiplier applied to the base price. */
   multiplier: number;
   /** CAIP-2, e.g. `stellar:testnet`. */
   network: string;
-  /** SEP-41 token contract (`C…`) or ISO 4217 code. */
+  /** USDC SEP-41 contract (`C…`). */
   asset: string;
+  /** Native XLM Stellar Asset Contract (`C…`). */
+  xlmAsset: string;
   /** Receiving wallet, or `merchant` on the Pix rail. */
   payTo: string;
   rails: Rail[];
@@ -53,10 +57,12 @@ export async function createOffer(db: Database, input: CreateOfferInput): Promis
       identityId: input.identityId,
       packCredits: input.packCredits,
       priceUsdcAtomic: input.priceUsdcAtomic,
+      priceXlmAtomic: input.priceXlmAtomic,
       priceBrlCents: input.priceBrlCents,
       multiplier: input.multiplier,
       network: input.network,
       asset: input.asset,
+      xlmAsset: input.xlmAsset,
       payTo: input.payTo,
       rails: input.rails,
       pixChargeId: input.pixChargeId ?? null,
@@ -110,6 +116,63 @@ export type MarkOfferPaidResult =
  * @param id - Offer id.
  * @returns The paid offer, or why it did not move.
  */
+/**
+ * Store the Pix charge created for an offer.
+ *
+ * @param db - Connection or open transaction.
+ * @param id - Offer id.
+ * @param charge - Provider charge id and the copy-and-paste code.
+ * @returns The updated offer, or `null` when the offer does not exist.
+ */
+export async function attachPixCharge(
+  db: Database,
+  id: string,
+  charge: { pixChargeId: string; pixBrCode: string | null },
+): Promise<Offer | null> {
+  const [row] = await db
+    .update(offers)
+    .set({ pixChargeId: charge.pixChargeId, pixBrCode: charge.pixBrCode })
+    .where(eq(offers.id, id))
+    .returning();
+  return row ?? null;
+}
+
+/**
+ * Find the offer a Pix charge belongs to.
+ *
+ * @param db - Connection or open transaction.
+ * @param pixChargeId - Provider charge id.
+ * @returns The offer, or `null`.
+ */
+export async function findOfferByPixCharge(
+  db: Database,
+  pixChargeId: string,
+): Promise<Offer | null> {
+  const [row] = await db.select().from(offers).where(eq(offers.pixChargeId, pixChargeId));
+  return row ?? null;
+}
+
+/**
+ * Expire or cancel a pending offer.
+ *
+ * @param db - Connection or open transaction.
+ * @param id - Offer id.
+ * @param status - Terminal status to apply.
+ * @returns The updated offer, or `null` when it was not pending.
+ */
+export async function closeOffer(
+  db: Database,
+  id: string,
+  status: "expired" | "canceled",
+): Promise<Offer | null> {
+  const [row] = await db
+    .update(offers)
+    .set({ status })
+    .where(and(eq(offers.id, id), eq(offers.status, "pending")))
+    .returning();
+  return row ?? null;
+}
+
 export async function markOfferPaid(db: Database, id: string): Promise<MarkOfferPaidResult> {
   const [updated] = await db
     .update(offers)

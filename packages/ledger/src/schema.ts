@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   bigserial,
+  boolean,
   index,
   integer,
   jsonb,
@@ -90,15 +91,19 @@ export const offers = pgTable("offers", {
     .references(() => identities.id),
   /** Credits the payment buys. */
   packCredits: integer("pack_credits").notNull(),
-  /** Atomic units with 7 decimals (Stellar), as an integer string. */
+  /** Atomic units of USDC with 7 decimals, as an integer string. */
   priceUsdcAtomic: text("price_usdc_atomic").notNull(),
+  /** Atomic units of XLM with 7 decimals, as an integer string. */
+  priceXlmAtomic: text("price_xlm_atomic").notNull(),
   priceBrlCents: integer("price_brl_cents").notNull(),
   /** Abuse multiplier applied to the base price. */
   multiplier: real("multiplier").notNull().default(1),
   /** CAIP-2, e.g. `stellar:testnet`. */
   network: text("network").notNull(),
-  /** SEP-41 token contract (`C…`) or ISO 4217 code. */
+  /** USDC SEP-41 contract (`C…`). */
   asset: text("asset").notNull(),
+  /** Native XLM Stellar Asset Contract (`C…`). */
+  xlmAsset: text("xlm_asset").notNull(),
   /** Receiving wallet, or `merchant` on the Pix rail. */
   payTo: text("pay_to").notNull(),
   /** `{exact,pix}`. */
@@ -168,10 +173,68 @@ export const creditLedger = pgTable(
   ],
 );
 
-export const schema = { identities, usageEvents, offers, payments, creditLedger };
+/**
+ * Hourly aggregate of `usage_events`. Raw events are deleted after 7 days;
+ * these rows stay, and the historical console reads them.
+ */
+export const usageRollups = pgTable(
+  "usage_rollups",
+  {
+    identityId: text("identity_id")
+      .notNull()
+      .references(() => identities.id),
+    route: text("route").notNull(),
+    hour: timestamp("hour", { withTimezone: true }).notNull(),
+    requests: integer("requests").notNull(),
+    credits: integer("credits").notNull(),
+    /** Credits served from a paid balance (`allow_credit`). */
+    paidCredits: integer("paid_credits").notNull(),
+  },
+  (table) => [
+    uniqueIndex("usage_rollups_identity_route_hour").on(
+      table.identityId,
+      table.route,
+      table.hour,
+    ),
+  ],
+);
+
+/** A policy applied from the console. The active row wins over the YAML file. */
+export const policyVersions = pgTable("policy_versions", {
+  id: text("id").primaryKey(),
+  content: jsonb("content").notNull(),
+  contentHash: text("content_hash").notNull(),
+  appliedBy: text("applied_by").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Append-only trail of administrative actions. Price changes are financial. */
+export const adminAudit = pgTable("admin_audit", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  action: text("action").notNull(),
+  actor: text("actor").notNull(),
+  payload: jsonb("payload").notNull(),
+  result: text("result").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const schema = {
+  identities,
+  usageEvents,
+  offers,
+  payments,
+  creditLedger,
+  usageRollups,
+  policyVersions,
+  adminAudit,
+};
 
 export type Identity = typeof identities.$inferSelect;
 export type UsageEvent = typeof usageEvents.$inferSelect;
 export type Offer = typeof offers.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type CreditLedgerEntry = typeof creditLedger.$inferSelect;
+export type UsageRollup = typeof usageRollups.$inferSelect;
+export type PolicyVersion = typeof policyVersions.$inferSelect;
+export type AdminAuditEntry = typeof adminAudit.$inferSelect;

@@ -1,8 +1,7 @@
 # 08 — Console: dashboard e gestão
 
-Escopo acordado, **ainda não implementado**. Este documento existe para que o
-console não seja desenhado na pressa no fim do projeto, e para fixar o contrato de
-API que o gateway precisa expor.
+O console está em `apps/console` (Vite, React, TypeScript, porta 4179). Este
+documento fixa o contrato de API que o gateway expõe para ele.
 
 ## O que é
 
@@ -82,8 +81,7 @@ latência da decisão do gateway.
 
 ## Contrato de API que o gateway precisa expor
 
-Nada disso existe hoje, fora o `GET /awall/offers/:id`. Endpoints de leitura do
-console, todos sob o prefixo de controle:
+Endpoints de leitura do console, todos sob o prefixo de controle:
 
 | Método e rota | Resposta |
 | --- | --- |

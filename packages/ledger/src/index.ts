@@ -4,12 +4,18 @@ export {
   offers,
   payments,
   creditLedger,
+  usageRollups,
+  policyVersions,
+  adminAudit,
   schema,
   type Identity,
   type UsageEvent,
   type Offer,
   type Payment,
   type CreditLedgerEntry,
+  type UsageRollup,
+  type PolicyVersion,
+  type AdminAuditEntry,
 } from "./schema.js";
 export type { Database, Transaction, Executor, Schema } from "./db.js";
 export {
@@ -22,10 +28,17 @@ export { newId, newIdentityId, newOfferId, newPaymentId } from "./ids.js";
 export {
   ensureIdentity,
   getIdentity,
+  updateAbuseScore,
   type EnsureIdentityInput,
   type IdentityKind,
 } from "./identities.js";
-export { recordUsageEvent, type Decision, type UsageEventInput } from "./usage.js";
+export {
+  recordUsageEvent,
+  finishUsageEvent,
+  type Decision,
+  type UsageEventInput,
+  type UsageEventPatch,
+} from "./usage.js";
 export {
   debitCredits,
   refundCredits,
@@ -41,14 +54,38 @@ export {
   type RefundResult,
   type GrantInput,
   type GrantResult,
+  promotePendingPayment,
+  type PromoteResult,
 } from "./credits.js";
 export {
   createOffer,
   getOffer,
   markOfferPaid,
+  attachPixCharge,
+  findOfferByPixCharge,
+  closeOffer,
   OFFER_TTL_MS,
   type CreateOfferInput,
   type MarkOfferPaidResult,
   type OfferStatus,
   type Rail,
 } from "./offers.js";
+export {
+  bumpUsageRollup,
+  purgeUsageEvents,
+  listUsageEvents,
+  listUsageRollups,
+  listIdentities,
+  listLedgerEntries,
+  listPayments,
+  listOffers,
+  summarizeUsage,
+  summarizeRevenue,
+  activePolicyVersion,
+  listPolicyVersions,
+  savePolicyVersion,
+  writeAdminAudit,
+  listAdminAudit,
+  type UsageFilter,
+  type RevenueRow,
+} from "./admin.js";

@@ -1,0 +1,35 @@
+# Public edge for a single host.
+# The gateway keeps /awall for itself. Everything else is the protected API,
+# except the console paths, which stay on the static app.
+:80 {
+	handle /awall/* {
+		reverse_proxy gateway:8402
+	}
+	handle /pay/* {
+		reverse_proxy console:4179
+	}
+	handle /live* {
+		reverse_proxy console:4179
+	}
+	handle /requests* {
+		reverse_proxy console:4179
+	}
+	handle /revenue* {
+		reverse_proxy console:4179
+	}
+	handle /identities* {
+		reverse_proxy console:4179
+	}
+	handle /payments* {
+		reverse_proxy console:4179
+	}
+	handle /policy* {
+		reverse_proxy console:4179
+	}
+	handle /health {
+		reverse_proxy console:4179
+	}
+	handle {
+		reverse_proxy gateway:8402
+	}
+}

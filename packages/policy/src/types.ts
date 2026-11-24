@@ -61,6 +61,12 @@ export const policySchema = z.object({
     pack_credits: z.number().int().positive(),
     /** Decimal string, in whole USDC. Converted to atomic units with 7 decimals. */
     price_usdc: z.string().regex(/^\d+(\.\d{1,7})?$/),
+    /**
+     * Decimal string, in whole XLM. Same 7 decimals as every Stellar asset.
+     * Advertised as a second `exact` rail next to USDC so an agent funded by
+     * friendbot can pay without a USDC faucet.
+     */
+    price_xlm: z.string().regex(/^\d+(\.\d{1,7})?$/),
     price_brl_cents: z.number().int().positive(),
     /** Upper bound of the abuse price multiplier. */
     max_multiplier: z.number().min(1),

@@ -1,0 +1,41 @@
+# Local stack: origin, gateway, console, and Caddy in front.
+# This is the deploy shape. It is not a public host by itself.
+services:
+  origin:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    command: ["sh", "-c", "corepack enable && pnpm --filter @awall/origin-demo start"]
+    volumes: [ "..:/app" ]
+    environment:
+      ORIGIN_PORT: "8787"
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      AWALL_PORT: "8402"
+      AWALL_POLICY: /app/awall.yaml
+      STELLAR_PAY_TO: ${STELLAR_PAY_TO:-}
+      AWALL_ADMIN_TOKEN: ${AWALL_ADMIN_TOKEN:-}
+      AWALL_CONSOLE_ORIGIN: ${AWALL_CONSOLE_ORIGIN:-http://localhost}
+      AWALL_CHECKOUT_BASE_URL: ${AWALL_CHECKOUT_BASE_URL:-http://localhost/pay}
+      DATABASE_URL: ${DATABASE_URL:-}
+      ABACATEPAY_API_KEY: ${ABACATEPAY_API_KEY:-}
+      ABACATEPAY_WEBHOOK_SECRET: ${ABACATEPAY_WEBHOOK_SECRET:-}
+    depends_on: [origin]
+
+  console:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    command: ["sh", "-c", "corepack enable && pnpm --filter @awall/console dev --host 0.0.0.0 --port 4179"]
+    volumes: [ "..:/app" ]
+    environment:
+      VITE_AWALL_URL: ${VITE_AWALL_URL:-http://localhost}
+
+  caddy:
+    image: caddy:2
+    ports: [ "80:80" ]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on: [gateway, console]

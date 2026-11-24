@@ -8,6 +8,7 @@ const policy = policySchema.parse({
   pricing: {
     pack_credits: 10000,
     price_usdc: "0.50",
+    price_xlm: "5.00",
     price_brl_cents: 290,
     max_multiplier: 3.0,
   },
@@ -47,13 +48,19 @@ describe("abuseMultiplier", () => {
 describe("priceFor", () => {
   it("prices the base pack", () => {
     const price = priceFor(policy, 0);
-    expect(price).toMatchObject({ usdcAtomic: "5000000", brlCents: 290, packCredits: 10000 });
+    expect(price).toMatchObject({
+      usdcAtomic: "5000000",
+      xlmAtomic: "50000000",
+      brlCents: 290,
+      packCredits: 10000,
+    });
   });
 
-  it("applies the abuse multiplier to both rails", () => {
+  it("applies the abuse multiplier to USDC, XLM and Pix", () => {
     const price = priceFor(policy, 0.18);
     expect(price.multiplier).toBeCloseTo(1.36, 10);
     expect(price.usdcAtomic).toBe("6800000");
+    expect(price.xlmAtomic).toBe("68000000");
     expect(price.brlCents).toBe(394);
   });
 });

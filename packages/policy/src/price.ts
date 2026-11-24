@@ -41,8 +41,10 @@ function applyMultiplier(base: bigint, multiplier: number): bigint {
 }
 
 export type Price = {
-  /** Atomic units of the Stellar asset, as a string (7 decimals). */
+  /** Atomic units of USDC, as a string (7 decimals). */
   usdcAtomic: string;
+  /** Atomic units of XLM, as a string (7 decimals). */
+  xlmAtomic: string;
   /** BRL in centavos. */
   brlCents: number;
   /** Compute units the payment buys. */
@@ -56,14 +58,16 @@ export type Price = {
  *
  * @param policy - Loaded policy.
  * @param abuseScore - Abuse score of the identity, in [0, 1].
- * @returns The price on both rails, plus the multiplier used.
+ * @returns The price on USDC, XLM and Pix, plus the multiplier used.
  */
 export function priceFor(policy: Policy, abuseScore: number): Price {
   const multiplier = abuseMultiplier(abuseScore, policy.pricing.max_multiplier);
-  const baseAtomic = decimalToAtomic(policy.pricing.price_usdc);
+  const baseUsdc = decimalToAtomic(policy.pricing.price_usdc);
+  const baseXlm = decimalToAtomic(policy.pricing.price_xlm);
   const baseCents = BigInt(policy.pricing.price_brl_cents);
   return {
-    usdcAtomic: applyMultiplier(baseAtomic, multiplier).toString(),
+    usdcAtomic: applyMultiplier(baseUsdc, multiplier).toString(),
+    xlmAtomic: applyMultiplier(baseXlm, multiplier).toString(),
     brlCents: Number(applyMultiplier(baseCents, multiplier)),
     packCredits: policy.pricing.pack_credits,
     multiplier,

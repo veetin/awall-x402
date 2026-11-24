@@ -10,9 +10,15 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@awall/ledger": "workspace:*",
+    "@awall/pix": "workspace:*",
     "@awall/policy": "workspace:*",
+    "@awall/settlement": "workspace:*",
+    "@electric-sql/pglite": "^0.5.16",
+    "@hono/node-server": "^1.13.0",
+    "drizzle-orm": "^0.45.4",
     "hono": "^4.6.0",
-    "@hono/node-server": "^1.13.0"
+    "ioredis": "^5.8.2"
   },
   "devDependencies": {
     "vitest": "^2.1.0"

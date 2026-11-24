@@ -9,6 +9,7 @@ const table = new RouteTable(
     pricing: {
       pack_credits: 10000,
       price_usdc: "0.50",
+      price_xlm: "5.00",
       price_brl_cents: 290,
       max_multiplier: 3,
     },

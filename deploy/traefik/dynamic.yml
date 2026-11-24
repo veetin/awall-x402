@@ -1,0 +1,33 @@
+# Mode B. Requests that already carry PAYMENT-SIGNATURE skip forwardAuth:
+# verify and settle take longer than an auth timeout. Everything else asks
+# GET /awall/decide, which returns 204 or the same 402 as inline mode.
+# Metered usage comes back as POST /awall/usage with the reservation id.
+http:
+  routers:
+    api-payment:
+      rule: "Host(`api.exemplo.com`) && HeaderRegexp(`PAYMENT-SIGNATURE`, `.+`)"
+      priority: 100
+      service: awall
+    api:
+      rule: "Host(`api.exemplo.com`)"
+      priority: 10
+      middlewares: [awall-decide]
+      service: app
+
+  middlewares:
+    awall-decide:
+      forwardAuth:
+        address: "http://awall:8402/awall/decide"
+        authResponseHeaders:
+          - "X-AWall-Identity"
+          - "X-AWall-Cost-Credits"
+          - "X-AWall-Reservation"
+        maxResponseBodySize: 65536
+
+  services:
+    awall:
+      loadBalancer:
+        servers: [{ url: "http://awall:8402" }]
+    app:
+      loadBalancer:
+        servers: [{ url: "http://app:8080" }]

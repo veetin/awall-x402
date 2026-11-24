@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadPolicy, policySchema } from "@awall/policy";
+import { decodeHeader } from "@awall/settlement";
 import { createApp } from "../src/app.js";
 import { readConfig } from "../src/config.js";
-import { decodeHeader } from "../src/x402.js";
-import type { PaymentRequired } from "../src/x402.js";
+import { createTestDb } from "./db.js";
 
 const config = readConfig({
   AWALL_PORT: "8402",
@@ -14,8 +14,8 @@ const policy = loadPolicy(new URL("./fixtures/awall.test.yaml", import.meta.url)
 /** Policy fixture: 4 credits of free quota, 2 credits per call. */
 const CALLS_IN_FREE_QUOTA = 2;
 
-function app() {
-  return createApp(config, policy);
+async function app() {
+  return createApp(config, policy, { db: await createTestDb() });
 }
 
 const freeRoutePolicy = policySchema.parse({
@@ -24,6 +24,7 @@ const freeRoutePolicy = policySchema.parse({
   pricing: {
     pack_credits: 10000,
     price_usdc: "0.50",
+    price_xlm: "5.00",
     price_brl_cents: 290,
     max_multiplier: 3.0,
   },
@@ -57,14 +58,14 @@ afterEach(() => {
 
 describe("gateway", () => {
   it("rejects a route that is not in the policy", async () => {
-    const res = await app().request("/v1/unknown");
+    const res = await (await app()).request("/v1/unknown");
     expect(res.status).toBe(404);
     await expect(res.json()).resolves.toMatchObject({ error: "route_not_configured" });
   });
 
   it("serves requests inside the free quota and reports the cost", async () => {
     stubOrigin(200);
-    const res = await app().request("/v1/search", { headers: { "x-api-key": "free-key" } });
+    const res = await (await app()).request("/v1/search", { headers: { "x-api-key": "free-key" } });
     expect(res.status).toBe(200);
     expect(res.headers.get("X-AWall-Cost-Credits")).toBe("2");
     expect(res.headers.get("X-AWall-Free-Remaining-Credits")).toBe("2");
@@ -72,7 +73,7 @@ describe("gateway", () => {
 
   it("answers 402, not 429, once the free quota is spent", async () => {
     stubOrigin(200);
-    const gateway = app();
+    const gateway = (await app());
     const headers = { "x-api-key": "spender-key" };
     for (let i = 0; i < CALLS_IN_FREE_QUOTA; i += 1) {
       expect((await gateway.request("/v1/search", { headers })).status).toBe(200);
@@ -86,7 +87,7 @@ describe("gateway", () => {
 
   it("advertises both rails in the PAYMENT-REQUIRED header", async () => {
     stubOrigin(200);
-    const gateway = app();
+    const gateway = (await app());
     const headers = { "x-api-key": "rails-key" };
     for (let i = 0; i < CALLS_IN_FREE_QUOTA; i += 1) {
       await gateway.request("/v1/search", { headers });
@@ -97,16 +98,29 @@ describe("gateway", () => {
 
     const header = res.headers.get("PAYMENT-REQUIRED");
     expect(header).toBeTruthy();
-    const required = decodeHeader<PaymentRequired>(header as string);
+    const decoded = decodeHeader(header as string);
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const required = decoded.value as {
+      x402Version: number;
+      accepts: Record<string, unknown>[];
+    };
 
     expect(required.x402Version).toBe(2);
-    const [exact, pix] = required.accepts;
-    expect(exact).toMatchObject({
+    const [usdc, xlm, pix] = required.accepts;
+    expect(usdc).toMatchObject({
       scheme: "exact",
       network: "stellar:testnet",
       amount: "5000000",
       asset: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
-      extra: { areFeesSponsored: true, packCredits: 10000 },
+      extra: { areFeesSponsored: true, packCredits: 10000, assetCode: "USDC" },
+    });
+    expect(xlm).toMatchObject({
+      scheme: "exact",
+      network: "stellar:testnet",
+      amount: "50000000",
+      asset: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      extra: { areFeesSponsored: true, packCredits: 10000, assetCode: "XLM" },
     });
     expect(pix).toMatchObject({
       scheme: "pix",
@@ -122,17 +136,19 @@ describe("gateway", () => {
 
   it("exposes the offer as pending until it is paid", async () => {
     stubOrigin(200);
-    const gateway = app();
+    const gateway = (await app());
     const headers = { "x-api-key": "offer-key" };
     for (let i = 0; i < CALLS_IN_FREE_QUOTA; i += 1) {
       await gateway.request("/v1/search", { headers });
     }
-    const required = decodeHeader<PaymentRequired>(
-      (await gateway.request("/v1/search", { headers })).headers.get(
-        "PAYMENT-REQUIRED",
-      ) as string,
+    const decoded = decodeHeader(
+      (await gateway.request("/v1/search", { headers })).headers.get("PAYMENT-REQUIRED") as string,
     );
-    const offerId = (required.accepts[0]?.extra as { offerId: string }).offerId;
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const required = decoded.value;
+    const accepts = required["accepts"] as { extra: { offerId: string } }[];
+    const offerId = accepts[0]?.extra.offerId ?? "";
 
     const status = await gateway.request(`/awall/offers/${offerId}`);
     expect(status.status).toBe(202);
@@ -142,19 +158,17 @@ describe("gateway", () => {
     expect(missing.status).toBe(404);
   });
 
-  it("refuses a payment it cannot verify yet instead of faking success", async () => {
-    const res = await app().request("/v1/search", {
+  it("answers 402, not 500, when a payment cannot be verified", async () => {
+    const res = await (await app()).request("/v1/search", {
       headers: { "x-api-key": "payer-key", "payment-signature": "e30=" },
     });
-    expect(res.status).toBe(501);
-    await expect(res.json()).resolves.toMatchObject({
-      error: "payment_verification_not_implemented",
-    });
+    expect(res.status).toBe(402);
+    await expect(res.json()).resolves.toMatchObject({ errorReason: "invalid_payload" });
   });
 
   it("gives quota back when the origin fails", async () => {
     stubOrigin(500);
-    const gateway = app();
+    const gateway = (await app());
     const headers = { "x-api-key": "refund-key" };
     // Every call fails upstream and is refunded, so quota never runs out.
     for (let i = 0; i < CALLS_IN_FREE_QUOTA + 2; i += 1) {
@@ -171,7 +185,7 @@ describe("gateway", () => {
         throw new TypeError("fetch failed");
       }),
     );
-    const res = await app().request("/v1/search", { headers: { "x-api-key": "down-key" } });
+    const res = await (await app()).request("/v1/search", { headers: { "x-api-key": "down-key" } });
     expect(res.status).toBe(502);
     await expect(res.json()).resolves.toMatchObject({ error: "origin_unreachable" });
   });
@@ -182,10 +196,10 @@ describe("identity behind an edge proxy", () => {
 
   it("ignores X-Forwarded-For by default", async () => {
     stubOrigin(200);
-    const res = await app().request("/v1/search", { headers: forwarded });
+    const res = await (await app()).request("/v1/search", { headers: forwarded });
     expect(res.headers.get("X-AWall-Identity")).toBe(
       (
-        await app().request("/v1/search", {
+        await (await app()).request("/v1/search", {
           headers: { "x-forwarded-for": "198.51.100.9" },
         })
       ).headers.get("X-AWall-Identity"),
@@ -194,7 +208,7 @@ describe("identity behind an edge proxy", () => {
 
   it("separates identities per forwarded address when the proxy is trusted", async () => {
     stubOrigin(200);
-    const trusting = createApp({ ...config, trustProxy: true }, policy);
+    const trusting = createApp({ ...config, trustProxy: true }, policy, { db: await createTestDb() });
     const first = await trusting.request("/v1/search", { headers: forwarded });
     const second = await trusting.request("/v1/search", {
       headers: { "x-forwarded-for": "198.51.100.9" },
@@ -208,7 +222,7 @@ describe("identity behind an edge proxy", () => {
 describe("per-route configuration", () => {
   it("serves a free route without touching the quota", async () => {
     stubOrigin(200);
-    const gateway = createApp(config, freeRoutePolicy);
+    const gateway = createApp(config, freeRoutePolicy, { db: await createTestDb() });
     for (let i = 0; i < 20; i += 1) {
       const res = await gateway.request("/v1/health", { headers: { "x-api-key": "k" } });
       expect(res.status).toBe(200);
@@ -218,7 +232,7 @@ describe("per-route configuration", () => {
 
   it("keeps a route with its own quota separate from the shared one", async () => {
     stubOrigin(200);
-    const gateway = createApp(config, freeRoutePolicy);
+    const gateway = createApp(config, freeRoutePolicy, { db: await createTestDb() });
     const headers = { "x-api-key": "scoped-key" };
 
     // The report route has 2 credits of its own and costs 2: one call, then 402.
@@ -233,7 +247,7 @@ describe("per-route configuration", () => {
 
   it("proxies unlisted routes when defaults say free", async () => {
     stubOrigin(200);
-    const gateway = createApp(config, unmatchedFreePolicy);
+    const gateway = createApp(config, unmatchedFreePolicy, { db: await createTestDb() });
     const res = await gateway.request("/v1/anything", { headers: { "x-api-key": "k" } });
     expect(res.status).toBe(200);
     expect(res.headers.get("X-AWall-Cost-Credits")).toBe("0");

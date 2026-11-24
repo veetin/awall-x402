@@ -1,0 +1,69 @@
+# Envoy ext_authz in front of the origin.
+# A request with PAYMENT-SIGNATURE matches the first route and goes straight
+# to the gateway cluster. The auth filter is not on that route, because
+# verify/settle does not fit an auth timeout.
+# nginx auth_request cannot do this: it only accepts 2xx, 401 and 403.
+static_resources:
+  listeners:
+    - name: ingress
+      address:
+        socket_address: { address: 0.0.0.0, port_value: 8080 }
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress
+                route_config:
+                  name: local
+                  virtual_hosts:
+                    - name: api
+                      domains: ["*"]
+                      routes:
+                        - match:
+                            headers:
+                              - name: payment-signature
+                                present_match: true
+                          route: { cluster: awall }
+                        - match: { prefix: "/" }
+                          route: { cluster: app }
+                          typed_per_filter_config:
+                            envoy.filters.http.ext_authz:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthzPerRoute
+                              disabled: false
+                http_filters:
+                  - name: envoy.filters.http.ext_authz
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+                      transport_api_version: V3
+                      failure_mode_allow: false
+                      http_service:
+                        server_uri:
+                          uri: http://awall:8402
+                          cluster: awall
+                          timeout: 0.25s
+                        path_prefix: /awall/decide
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  clusters:
+    - name: awall
+      connect_timeout: 1s
+      type: STRICT_DNS
+      load_assignment:
+        cluster_name: awall
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address: { address: awall, port_value: 8402 }
+    - name: app
+      connect_timeout: 1s
+      type: STRICT_DNS
+      load_assignment:
+        cluster_name: app
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address: { address: app, port_value: 8080 }

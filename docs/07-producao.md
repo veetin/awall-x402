@@ -123,10 +123,11 @@ http:
         servers: [{ url: "http://app:8080" }]
 ```
 
-O endpoint `/awall/decide` ainda não existe: está no roadmap como o passo que
-habilita o Modo B. Ele recebe os headers originais (o Traefik envia
+`GET /awall/decide` recebe os headers originais (o Traefik envia
 `X-Forwarded-Method` e `X-Forwarded-Uri`), decide, e devolve `204` ou o mesmo
-`402` que o Modo A devolve.
+`402` que o Modo A devolve. Um `PAYMENT-SIGNATURE` nesse endpoint responde
+`400`: liquidar não cabe no timeout do forwardAuth. Exemplos prontos estão em
+`deploy/traefik/dynamic.yml` e `deploy/envoy/envoy.yaml`.
 
 ### Rotas medidas no Modo B
 
@@ -138,7 +139,8 @@ outro caminho. Duas opções, em ordem de preferência:
 2. A borda envia o log de acesso para o AWall (Envoy ALS, ou log estruturado do
    Traefik consumido por um coletor), e o custo é cobrado em diferido.
 
-Até isso existir, rota medida fica no Modo A.
+O gateway aceita a medição em `POST /awall/usage`, autorizada pelo
+`X-AWall-Reservation` devolvido no `204`.
 
 ## Estado, réplicas e latência
 
@@ -146,10 +148,10 @@ O que hoje está em memória e precisa sair de lá antes de produção:
 
 | Estado | Hoje | Produção |
 | --- | --- | --- |
-| Token bucket da cota gratuita | memória do processo | Redis com script Lua atômico (`INCRBYFLOAT` + TTL não serve: precisa ser uma operação só) |
-| Identidades e escore de abuso | memória | Postgres com cache local de poucos segundos |
-| Offers | memória | Postgres (schema em `docs/04-modelo-dados.md`) |
-| Saldo de crédito | ainda não existe | Postgres, com `SELECT ... FOR UPDATE` |
+| Token bucket da cota gratuita | memória do processo; Redis se `REDIS_URL` estiver definido | Redis com script Lua atômico (`INCRBYFLOAT` + TTL não serve: precisa ser uma operação só) |
+| Identidades e escore de abuso | Postgres | cache local de poucos segundos em cima do Postgres |
+| Offers | Postgres | Postgres (schema em `docs/04-modelo-dados.md`) |
+| Saldo de crédito | Postgres, com `SELECT ... FOR UPDATE` | o mesmo |
 
 Orçamento de latência do caminho rápido (dentro da cota, sem pagamento): leitura
 de bucket e decisão em um dígito de milissegundo. Isso exige o bucket em Redis na
