@@ -88,7 +88,8 @@ Endpoints de leitura do console, todos sob o prefixo de controle:
 
 | Método e rota | Resposta |
 | --- | --- |
-| `GET /awall/stats/stream` | SSE com um evento por requisição e por pagamento |
+| `POST /awall/stats/stream-ticket` | ticket de uso único para abrir o SSE |
+| `GET /awall/stats/stream?ticket=` | SSE com um evento por requisição e por pagamento |
 | `GET /awall/stats/summary?window=1h` | contadores, receita por trilho, requisições recuperadas |
 | `GET /awall/usage?from&to&identityId&decision` | eventos paginados |
 | `GET /awall/identities` | lista com saldo, escore e multiplicador |
@@ -97,6 +98,39 @@ Endpoints de leitura do console, todos sob o prefixo de controle:
 | `GET /awall/policy` | política efetiva, com a origem de cada valor (YAML ou override) |
 | `GET /awall/health/checks` | resultado das checagens da tela Saúde |
 | `PUT /awall/policy` | **fase 2**: aplica uma nova versão da política |
+
+### Token de admin: só no header
+
+O `AWALL_ADMIN_TOKEN` viaja em `Authorization: Bearer`, nunca na query string:
+uma URL vai para o log de acesso do gateway, para o log de todo proxy na frente
+dele e para o histórico do navegador. O `EventSource` do navegador não manda
+header, então o console primeiro chama `POST /awall/stats/stream-ticket` com o
+header e recebe um ticket de uso único, válido por 30 segundos
+(`STREAM_TICKET_TTL_MS`), que é o que aparece na URL do SSE. Ticket gasto ou
+vencido devolve `401`; como ele vale uma vez, reconectar exige emitir outro.
+
+### Paginação
+
+`GET /awall/usage`, `GET /awall/identities`, `GET /awall/payments` e o extrato
+de `GET /awall/identities/:id` aceitam `limit` e `offset`. O padrão é 50 linhas
+e o teto é 200 (`DEFAULT_PAGE_LIMIT` e `MAX_PAGE_LIMIT`). Valor inválido cai no
+padrão em vez de devolver `400`. Cada resposta traz um descritor:
+
+```json
+{ "limit": 50, "offset": 0, "hasMore": true, "nextOffset": 50 }
+```
+
+`hasMore` vem de ler uma linha além da página, não de contar a tabela. Números
+que descrevem o locatário inteiro — a média do escore de abuso, por exemplo —
+são agregados em SQL sobre toda a tabela, nunca a média da página.
+
+### Saúde
+
+`GET /awall/health/checks` não imprime número que não mediu. `database` é o
+resultado de um `select 1` de verdade, com a latência e, na falha, o código do
+erro do driver (nunca a mensagem, que pode conter a string de conexão).
+`decisionMs` cronometra uma chamada real a `decide`, sobre a primeira rota da
+política vigente, e a resposta diz qual requisição foi medida.
 
 Formato do evento SSE (estável, porque o console depende dele):
 

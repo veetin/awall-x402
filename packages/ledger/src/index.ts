@@ -78,6 +78,8 @@ export {
   listUsageRollups,
   listIdentities,
   listLedgerEntries,
+  summarizeAbuse,
+  probeDatabase,
   listPayments,
   listOffers,
   summarizeUsage,
@@ -89,4 +91,6 @@ export {
   listAdminAudit,
   type UsageFilter,
   type RevenueRow,
+  type AbuseSummary,
+  type DatabaseProbe,
 } from "./admin.js";
