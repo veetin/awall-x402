@@ -525,7 +525,9 @@ function assetCode(row: { rail: string; asset: string }, config: GatewayConfig):
 function isPublicControl(path: string, prefix: string, method: string): boolean {
   if (path === `${prefix}/offers` || path.startsWith(`${prefix}/offers/`)) return true;
   if (path === `${prefix}/webhooks/abacatepay`) return true;
-  if (path === `${prefix}/decide`) return true;
+  // Envoy ext_authz calls the decision route with the original path appended,
+  // so the whole subtree is the same public endpoint.
+  if (path === `${prefix}/decide` || path.startsWith(`${prefix}/decide/`)) return true;
   // The edge reports metered usage with a reservation id. That id is the capability.
   if (path === `${prefix}/usage` && method === "POST") return true;
   return false;

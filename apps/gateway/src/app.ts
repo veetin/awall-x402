@@ -149,14 +149,29 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
     return c.json(result.body, result.status as 200);
   });
 
-  app.get(`${prefix}/decide`, (c) =>
-    handle(c, {
-      method: c.req.header("x-forwarded-method") ?? "GET",
-      path: pathOf(c.req.header("x-forwarded-uri") ?? "/"),
-      search: searchOf(c.req.header("x-forwarded-uri") ?? "/"),
+  // Traefik forwardAuth describes the original request in headers. Envoy
+  // ext_authz does not: it calls the authorization service with the original
+  // method and the original path appended to `path_prefix`, so the request
+  // under decision is read off this request's own method and path instead.
+  const decideHandler = (c: Context, allowStatus: 200 | 204) => {
+    const header = c.req.header("x-forwarded-uri");
+    const uri = header ?? forwardedUriOf(new URL(c.req.url), `${prefix}/decide`);
+    return handle(c, {
+      method: c.req.header("x-forwarded-method") ?? c.req.method,
+      path: pathOf(uri),
+      search: searchOf(uri),
       decide: true,
-    }),
-  );
+      allowStatus,
+    });
+  };
+  // Traefik forwardAuth takes any 2xx as allowed, and 204 says plainly that
+  // there is no body to forward.
+  app.get(`${prefix}/decide`, (c) => decideHandler(c, 204));
+  // Envoy ext_authz over HTTP allows on 200 and **denies on every other
+  // status**, 204 included, returning the auth response to the client. It also
+  // sends no X-Forwarded-Uri: it appends the original path to `path_prefix`,
+  // which is what this route matches. So this subtree answers 200.
+  app.all(`${prefix}/decide/*`, (c) => decideHandler(c, 200));
 
   app.post(`${prefix}/usage`, async (c) => {
     const body = await c.req.json().catch(() => null);
@@ -214,7 +229,14 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
 
   async function handle(
     c: Context,
-    input: { method: string; path: string; search: string; decide: boolean },
+    input: {
+      method: string;
+      path: string;
+      search: string;
+      decide: boolean;
+      /** Status that means "allowed" to this edge. See {@link decideHandler}. */
+      allowStatus?: 200 | 204;
+    },
   ): Promise<Response> {
     if (input.decide && c.req.header("payment-signature")) {
       return c.json(
@@ -288,7 +310,7 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
 
     if (decision.kind === "free") {
       if (input.decide) {
-        return allowHeaders(c, identity.id, state, 0, "none", null, undefined);
+        return allowHeaders(c, identity.id, state, 0, "none", null, undefined, input.allowStatus);
       }
       return proxy(c, {
         identityId: identity.id,
@@ -366,7 +388,16 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
         now(),
       );
       const remaining = await quota.remaining(bucketKey, decision.limits, now());
-      return allowHeaders(c, identity.id, state, decision.credits, decision.scope, remaining, reservationId);
+      return allowHeaders(
+        c,
+        identity.id,
+        state,
+        decision.credits,
+        decision.scope,
+        remaining,
+        reservationId,
+        input.allowStatus,
+      );
     }
 
     return proxy(c, {
@@ -572,6 +603,7 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
     scope: string,
     remaining: number | null,
     reservationId: string | undefined,
+    allowStatus: 200 | 204 = 204,
   ): Response {
     c.header("X-AWall-Identity", identityId);
     c.header("X-AWall-Cost-Credits", String(credits));
@@ -579,9 +611,27 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
     if (scope !== "none") c.header("X-AWall-Quota-Scope", scope);
     if (remaining !== null) c.header("X-AWall-Free-Remaining-Credits", String(remaining));
     if (reservationId) c.header("X-AWall-Reservation", reservationId);
-    c.status(204);
+    c.status(allowStatus);
     return c.body(null);
   }
+}
+
+/**
+ * Rebuild the request under decision from an Envoy ext_authz call.
+ *
+ * Envoy calls the authorization service with the original method and with the
+ * original path appended to the filter's `path_prefix`, and sends no
+ * `X-Forwarded-Uri`. Stripping the prefix gives back the path the client asked
+ * for. A call straight at the prefix carries no path, which stays `/` and is
+ * answered by the policy's `unmatched` rule, exactly as before.
+ *
+ * @param url - URL of the decision request.
+ * @param prefix - Decision route, such as `/awall/decide`.
+ * @returns The original request URI, path plus query.
+ */
+export function forwardedUriOf(url: URL, prefix: string): string {
+  const path = url.pathname.startsWith(prefix) ? url.pathname.slice(prefix.length) : url.pathname;
+  return `${path || "/"}${url.search}`;
 }
 
 function pathOf(uri: string): string {

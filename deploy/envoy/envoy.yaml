@@ -21,16 +21,26 @@ static_resources:
                       domains: ["*"]
                       routes:
                         - match:
+                            # Envoy requires a path specifier on every match,
+                            # so the header rule needs this prefix beside it.
+                            prefix: "/"
                             headers:
                               - name: payment-signature
                                 present_match: true
                           route: { cluster: awall }
-                        - match: { prefix: "/" }
-                          route: { cluster: app }
                           typed_per_filter_config:
                             envoy.filters.http.ext_authz:
                               "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthzPerRoute
-                              disabled: false
+                              # The filter is on for the whole listener, so the
+                              # paid route has to turn it off: verify and settle
+                              # take seconds and would blow the auth timeout.
+                              disabled: true
+                        # Everything else asks the gateway first. The filter
+                        # is on for the listener, so this route needs no
+                        # per-route config: ExtAuthzPerRoute only accepts
+                        # `disabled: true`, never `false`.
+                        - match: { prefix: "/" }
+                          route: { cluster: app }
                 http_filters:
                   - name: envoy.filters.http.ext_authz
                     typed_config:
@@ -42,7 +52,37 @@ static_resources:
                           uri: http://awall:8402
                           cluster: awall
                           timeout: 0.25s
+                        # Envoy sends the original method and appends the
+                        # original path to this prefix. It sends no
+                        # X-Forwarded-Uri, so the gateway reads the request
+                        # under decision off its own path.
                         path_prefix: /awall/decide
+                        authorization_request:
+                          allowed_headers:
+                            patterns:
+                              # Without this the identity header never arrives
+                              # and every request looks like a new client.
+                              - exact: authorization
+                                ignore_case: true
+                              - exact: payment-signature
+                                ignore_case: true
+                        authorization_response:
+                          allowed_upstream_headers:
+                            patterns:
+                              - exact: x-awall-identity
+                                ignore_case: true
+                              - exact: x-awall-cost-credits
+                                ignore_case: true
+                              - exact: x-awall-reservation
+                                ignore_case: true
+                          # The 402 body and its PAYMENT-REQUIRED header have to
+                          # reach the client, which is the whole point of mode B.
+                          allowed_client_headers:
+                            patterns:
+                              - exact: payment-required
+                                ignore_case: true
+                              - exact: content-type
+                                ignore_case: true
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
