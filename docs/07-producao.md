@@ -167,6 +167,23 @@ Enquanto o bucket é em memória, **o gateway é single-instance**. Duas réplic
 bucket em memória significam que cada uma concede a cota inteira: o limite efetivo
 dobra. É aceitável na demo e não em produção.
 
+### Provando que duas réplicas aplicam uma cota só
+
+`./scripts/redis-replicas.sh` sobe Redis e Caddy em Docker, duas réplicas do
+gateway em portas diferentes, e manda 400 requisições pelo balanceador em
+round robin. Com `REDIS_URL` nas duas réplicas, passam 133 requisições para uma
+cota de 130 créditos — a diferença é a recarga durante a corrida. O script
+repete a corrida com as mesmas duas réplicas sem `REDIS_URL` e passam 278: é
+assim que se sabe que a corrida anterior não passou por acaso. Ele falha se o
+número com Redis subir acima de uma vez e meia a cota, ou se o controle sem
+Redis não dobrar.
+
+No fim ele roda `apps/gateway/test/redis-live.test.ts`, que só executa quando
+`REDIS_TEST_URL` aponta para um Redis de verdade: duas instâncias de
+`SharedQuota` contra o mesmo pool, alternadas como um balanceador, e `PTTL`
+positivo na chave gravada. Sem a variável, o teste é pulado e o `pnpm test`
+continua hermético.
+
 ### Tempo de vida das chaves do bucket
 
 Toda chave do bucket expira, e a expiração é gravada dentro do mesmo `EVAL` que
