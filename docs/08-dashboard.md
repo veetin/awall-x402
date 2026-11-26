@@ -10,6 +10,13 @@ Uma aplicação **Vite + React + TypeScript** em `apps/console`, com duas áreas
 | Área | Rota | Autenticação | Para quem |
 | --- | --- | --- | --- |
 | Checkout | `/pay/:offerId` | nenhuma | a pessoa que vai pagar por Pix ou cripto, vinda do `extra.checkoutUrl` do 402 |
+
+O checkout mostra o QR Code do Pix desenhado a partir do próprio BR Code — nunca
+de uma imagem do provedor, que poderia divergir do código impresso logo abaixo —,
+um botão de copia-e-cola para esse código e um botão que copia os termos Stellar
+da offer para a carteira. O botão de copiar usa `navigator.clipboard` quando o
+contexto é seguro e cai num `textarea` escondido com `execCommand` quando não é,
+porque um checkout aberto por HTTP no celular não tem contexto seguro.
 | Console | `/` e abas | token de administrador | quem opera a API protegida |
 
 Uma aplicação só, porque as duas áreas consomem os mesmos dados e o mesmo

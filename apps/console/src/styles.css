@@ -94,3 +94,32 @@ code, .mono { font-family: var(--mono); font-size: 12px; }
   .cards, .diff { grid-template-columns: 1fr; }
   .main { padding: 20px 16px 48px; }
 }
+
+.pay .qr {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  margin: 0 auto 12px;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
+  box-sizing: border-box;
+}
+.pay .copy {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--bone);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.pay .copy:active { background: var(--line); }
+@media (max-width: 420px) {
+  .pay { margin: 24px auto; padding: 0 16px; }
+  .pay .br { font-size: 12px; }
+}
