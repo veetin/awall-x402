@@ -1,7 +1,11 @@
 # Public edge for a single host.
 # The gateway keeps /awall for itself. Everything else is the protected API,
 # except the console paths, which stay on the static app.
-:80 {
+#
+# {$AWALL_DOMAIN::80} is the site address: a hostname gives automatic HTTPS,
+# with Caddy obtaining and renewing the certificate, and the default `:80`
+# serves plain HTTP for a local run. Set AWALL_DOMAIN to the public name.
+{$AWALL_DOMAIN::80} {
 	handle /awall/* {
 		reverse_proxy gateway:8402
 	}

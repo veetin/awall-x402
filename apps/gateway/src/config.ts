@@ -122,6 +122,14 @@ export type GatewayConfig = {
   /** Optional Redis URL for the shared free-quota bucket. */
   redisUrl: string;
   originTimeoutMs: number;
+  /**
+   * Protected API to proxy to, overriding `origin` in the policy file.
+   *
+   * A deployment addresses the application by its own name - a compose
+   * service, a private hostname - while the policy file in the repository
+   * names a localhost port for development. Empty means the policy decides.
+   */
+  originUrl: string;
   maxBodyBytes: number;
   /** Rough infrastructure cost, used by the revenue screen. USD per credit. */
   infraUsdPerCredit: number;
@@ -216,6 +224,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     abacatePayWebhookSecret: env["ABACATEPAY_WEBHOOK_SECRET"] ?? "",
     redisUrl: env["REDIS_URL"] ?? "",
     originTimeoutMs: Number(env["AWALL_ORIGIN_TIMEOUT_MS"] ?? 15_000),
+    originUrl: env["AWALL_ORIGIN"] ?? "",
     maxBodyBytes: Number(env["AWALL_MAX_BODY_BYTES"] ?? 1_000_000),
     infraUsdPerCredit: Number(env["AWALL_INFRA_USD_PER_CREDIT"] ?? 0.00002),
     usageRetentionMs: Number(env["AWALL_USAGE_RETENTION_MS"] ?? 7 * 24 * 60 * 60 * 1000),
