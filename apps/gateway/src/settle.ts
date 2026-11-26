@@ -231,7 +231,13 @@ export function paymentResponseHeader(response: SettlementResponse | undefined):
 
 export { HEADER_PAYMENT_RESPONSE };
 
-function readOfferId(payload: PaymentPayload): string | undefined {
+/**
+ * Offer the payload says it pays for.
+ *
+ * @param payload - Decoded `PAYMENT-SIGNATURE`.
+ * @returns The offer id, or `undefined` when the payload names none.
+ */
+export function readOfferId(payload: PaymentPayload): string | undefined {
   const id = payload.accepted.extra["offerId"];
   return typeof id === "string" && id.length > 0 ? id : undefined;
 }

@@ -11,6 +11,12 @@ Uma aplicação **Vite + React + TypeScript** em `apps/console`, com duas áreas
 | --- | --- | --- | --- |
 | Checkout | `/pay/:offerId` | nenhuma | a pessoa que vai pagar por Pix ou cripto, vinda do `extra.checkoutUrl` do 402 |
 
+O botão "Pagar com a carteira" abre um campo para colar o `PAYMENT-SIGNATURE`
+que a carteira produziu a partir dos termos copiados ali do lado, e manda para
+`POST /awall/offers/:id/pay`. O console não assina nada: a chave fica na
+carteira, e o gateway revalida o payload contra a offer gravada antes de
+creditar.
+
 O checkout mostra o QR Code do Pix desenhado a partir do próprio BR Code — nunca
 de uma imagem do provedor, que poderia divergir do código impresso logo abaixo —,
 um botão de copia-e-cola para esse código e um botão que copia os termos Stellar

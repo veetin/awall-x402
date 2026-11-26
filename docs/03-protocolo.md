@@ -302,6 +302,28 @@ significar "usa o scheme `upto`" e passa a significar "o custo em créditos é c
 depois da resposta, a partir da medição da origin" (tokens gerados, bytes
 transferidos). Desaparece um risco de implementação do roadmap.
 
+## Pagamento de uma offer fora de banda
+
+O agente paga reenviando a própria requisição com `PAYMENT-SIGNATURE`. Quem
+abre o checkout no navegador não tem requisição própria para carregar o header:
+tem só o link da offer. Para esse caso existe `POST /awall/offers/:id/pay`.
+
+- Público, como `GET /awall/offers/:id`. O id da offer é a capacidade, igual ao
+  polling do Pix.
+- Aceita o payload no header `PAYMENT-SIGNATURE` ou no corpo
+  `{"payment": "<valor do header>"}`.
+- O payload precisa nomear **esta** offer em `accepted.extra.offerId`. Um
+  payload de outra offer é recusado com `offer_mismatch` **antes** de chamar o
+  facilitator, enquanto o dinheiro ainda está com o pagador. Sem essa checagem,
+  um payload de uma offer mais barata da mesma identidade liquidaria aqui.
+- Daí em diante é a mesma liquidação do caminho em linha: revalidação contra a
+  offer gravada, `/verify`, `/settle`, crédito idempotente pelo hash da
+  transação.
+- O crédito vai para a identidade **da offer**, nunca para quem postou. É o
+  mesmo princípio do webhook do Pix.
+- `200` devolve `creditedCredits`, o hash e o header `PAYMENT-RESPONSE`; falha
+  terminal devolve `402` com o `errorReason`; offer desconhecida devolve `404`.
+
 ## Endpoints próprios do gateway
 
 | Método e rota | Função |

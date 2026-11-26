@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import {
   admin,
   gatewayUrl,
+  payOffer,
   publicGet,
   streamTicket,
   streamUrl,
@@ -693,6 +694,75 @@ function walletTerms(offerId: string, stellar: unknown): string {
   return JSON.stringify({ offerId, stellar }, null, 2);
 }
 
+/**
+ * Hand a wallet's signed payment to the gateway.
+ *
+ * The wallet signs the terms copied above and gives back a `PAYMENT-SIGNATURE`
+ * value; this sends it to `POST /awall/offers/:id/pay`, which verifies it
+ * against the stored offer before anything is credited. Nothing here signs:
+ * the key stays in the wallet.
+ */
+function WalletPayment({ offerId }: { offerId: string }) {
+  const [open, setOpen] = useState(false);
+  const [payment, setPayment] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "done">("idle");
+  const [error, setError] = useState("");
+
+  const send = async () => {
+    setState("sending");
+    setError("");
+    try {
+      const answer = await payOffer(offerId, payment.trim());
+      if (answer.status === 200) {
+        setState("done");
+        return;
+      }
+      setError(String(answer.body["error"] ?? `erro ${answer.status}`));
+      setState("idle");
+    } catch {
+      setError("Não consegui falar com o gateway.");
+      setState("idle");
+    }
+  };
+
+  if (state === "done") {
+    return <p className="status-paid">Pagamento aceito. O status acima atualiza em instantes.</p>;
+  }
+
+  if (!open) {
+    return (
+      <button type="button" className="copy" onClick={() => setOpen(true)}>
+        Pagar com a carteira
+      </button>
+    );
+  }
+
+  return (
+    <div className="wallet">
+      <p className="muted">
+        Assine os termos acima na carteira e cole aqui o valor de
+        <span className="mono"> PAYMENT-SIGNATURE</span>.
+      </p>
+      <textarea
+        className="mono"
+        rows={4}
+        value={payment}
+        onChange={(event) => setPayment(event.target.value)}
+        placeholder="eyJ4NDAyVmVyc2lvbiI6Mi..."
+      />
+      {error && <p className="banner bad">{error}</p>}
+      <button
+        type="button"
+        className="copy"
+        disabled={state === "sending" || payment.trim().length === 0}
+        onClick={() => void send()}
+      >
+        {state === "sending" ? "Enviando…" : "Enviar pagamento"}
+      </button>
+    </div>
+  );
+}
+
 function Checkout({ offerId }: { offerId: string }) {
   const [body, setBody] = useState<Record<string, unknown> | null>(null);
   const [status, setStatus] = useState(0);
@@ -742,10 +812,13 @@ function Checkout({ offerId }: { offerId: string }) {
             </p>
             {stellarRow(body?.["stellar"])}
             {body?.["stellar"] ? (
-              <CopyButton
-                text={walletTerms(offerId, body["stellar"])}
-                label="Copiar termos para a carteira"
-              />
+              <>
+                <CopyButton
+                  text={walletTerms(offerId, body["stellar"])}
+                  label="Copiar termos para a carteira"
+                />
+                <WalletPayment offerId={offerId} />
+              </>
             ) : null}
           </section>
           <section className="panel">

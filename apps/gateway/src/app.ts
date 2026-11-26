@@ -4,6 +4,7 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import {
   bumpUsageRollup,
   createOffer,
+  getOffer,
   debitCredits,
   ensureIdentity,
   getBalance,
@@ -28,9 +29,11 @@ import {
 } from "@awall/policy";
 import type { FacilitatorClient } from "@awall/settlement";
 import type { AbacatePayClient } from "@awall/pix";
+import { decodePaymentPayload } from "@awall/settlement";
 import {
   HEADER_PAYMENT_RESPONSE,
   paymentResponseHeader,
+  readOfferId,
   settlePayment,
   type SettleSuccess,
 } from "./settle.js";
@@ -141,6 +144,56 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
   app.get(`${prefix}/offers/:id`, async (c) => {
     const result = await offerStatus(db, pix, c.req.param("id"), now());
     return c.json(result.body, result.status as 200);
+  });
+
+  // A wallet pays an offer out of band: the browser at the checkout holds the
+  // offer link, not the agent's credentials, so there is no request of its own
+  // to carry PAYMENT-SIGNATURE. The offer id is the capability, exactly as it
+  // is for the Pix poll, and the credits land on the offer's own identity -
+  // never on whoever posted here.
+  app.post(`${prefix}/offers/:id/pay`, async (c) => {
+    const offerId = c.req.param("id");
+    const offer = await getOffer(db, offerId);
+    if (!offer) return c.json({ error: "offer_not_found" }, 404);
+
+    const header =
+      c.req.header("payment-signature") ??
+      (await c.req
+        .json()
+        .then((body: unknown) =>
+          body && typeof body === "object" && typeof (body as { payment?: unknown }).payment === "string"
+            ? ((body as { payment: string }).payment)
+            : "",
+        )
+        .catch(() => ""));
+    if (!header) return c.json({ error: "missing_payment", errorReason: "invalid_payload" }, 402);
+
+    const decoded = decodePaymentPayload(header);
+    // The payload has to name this offer. Otherwise a payload for a cheaper
+    // offer of the same identity would settle here and credit this one.
+    if (!decoded.ok || readOfferId(decoded.value) !== offerId) {
+      return c.json({ error: "offer_mismatch", errorReason: "invalid_payment_requirements" }, 402);
+    }
+
+    const result = await settlePayment(db, facilitator, header, offer.identityId);
+    if (!result.ok) {
+      if (result.response) c.header(HEADER_PAYMENT_RESPONSE, paymentResponseHeader(result.response) ?? "");
+      log({ msg: "checkout payment rejected", offerId, error: result.error, errorReason: result.errorReason });
+      return c.json({ error: result.error, errorReason: result.errorReason }, 402);
+    }
+    c.header(HEADER_PAYMENT_RESPONSE, paymentResponseHeader(result.response) ?? "");
+    log({
+      msg: "checkout payment settled",
+      offerId,
+      transaction: result.response.transaction,
+      credits: result.offer.packCredits,
+    });
+    return c.json({
+      status: "paid",
+      creditedCredits: result.offer.packCredits,
+      transaction: result.response.transaction,
+      paid: result.paid,
+    });
   });
 
   app.post(`${prefix}/webhooks/abacatepay`, async (c) => {

@@ -9,6 +9,30 @@ export async function publicGet(path: string): Promise<Response> {
   return fetch(`${gatewayUrl()}${path}`);
 }
 
+/**
+ * Hand a signed payment to the gateway for one offer.
+ *
+ * The offer id is the capability: the browser at the checkout holds the link
+ * and nothing else, so there is no API key here and none is needed. The
+ * credits land on the offer's own identity, whoever posts this.
+ *
+ * @param offerId - Offer being paid.
+ * @param payment - The `PAYMENT-SIGNATURE` value a wallet produced.
+ * @returns The gateway's answer, already parsed.
+ */
+export async function payOffer(
+  offerId: string,
+  payment: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const response = await fetch(`${gatewayUrl()}/awall/offers/${offerId}/pay`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ payment }),
+  });
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  return { status: response.status, body };
+}
+
 export async function admin(path: string, token: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   headers.set("authorization", `Bearer ${token}`);
