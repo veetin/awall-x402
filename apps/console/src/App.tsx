@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { admin, gatewayUrl, publicGet, streamUrl, type LiveEvent } from "./api";
+import {
+  admin,
+  gatewayUrl,
+  publicGet,
+  streamTicket,
+  streamUrl,
+  type LiveEvent,
+  type PageInfo,
+} from "./api";
 
 const TABS = [
   ["live", "Ao vivo"],
@@ -140,15 +148,48 @@ function Live({ token }: { token: string }) {
 
   useEffect(() => {
     if (!token) return;
-    const source = new EventSource(streamUrl(token));
+    let stopped = false;
+    let source: EventSource | null = null;
+    let retry = 0;
+
     const onEvent = (event: MessageEvent) => {
       const parsed = JSON.parse(event.data) as LiveEvent;
       setRows((current) => [parsed, ...current].slice(0, 80));
     };
-    source.addEventListener("request", onEvent);
-    source.addEventListener("payment", onEvent);
-    source.onerror = () => setError("A conexão ao vivo caiu. Confira o token e se o gateway está no ar.");
-    return () => source.close();
+
+    /**
+     * A ticket is single use, so a dropped stream needs a new one. The browser
+     * would reconnect with the spent ticket and be refused, so the retry closes
+     * the source and mints again.
+     */
+    const open = async () => {
+      try {
+        const ticket = await streamTicket(token);
+        if (stopped) return;
+        const opened = new EventSource(streamUrl(ticket));
+        source = opened;
+        opened.addEventListener("request", onEvent);
+        opened.addEventListener("payment", onEvent);
+        opened.addEventListener("open", () => setError(""));
+        opened.onerror = () => {
+          opened.close();
+          if (stopped) return;
+          setError("A conexão ao vivo caiu. Reconectando…");
+          retry = window.setTimeout(() => void open(), 2000);
+        };
+      } catch {
+        if (stopped) return;
+        setError("Não consegui abrir o fluxo. Confira o token e se o gateway está no ar.");
+        retry = window.setTimeout(() => void open(), 5000);
+      }
+    };
+
+    void open();
+    return () => {
+      stopped = true;
+      window.clearTimeout(retry);
+      source?.close();
+    };
   }, [token]);
 
   const visible = rows.filter((row) => {
@@ -299,16 +340,24 @@ function atomic(value: string): string {
   }
 }
 
+/** Rows per page in the console. The gateway refuses more than 200. */
+const PAGE_LIMIT = 50;
+
 function Identities({ token }: { token: string }) {
-  const { data, error, loading } = useAdmin<{ identities: Identity[] }>(token, "/awall/identities");
+  const [offset, setOffset] = useState(0);
+  const { data, error, loading } = useAdmin<{ identities: Identity[]; page: PageInfo }>(
+    token,
+    `/awall/identities?limit=${PAGE_LIMIT}&offset=${offset}`,
+  );
   const rows = data?.identities ?? [];
+  const page = data?.page;
   return (
     <section>
       <h1>Identidades</h1>
       <p className="lede">Saldo, escore e o preço que essa identidade paga agora.</p>
       {loading && <p className="empty">Carregando…</p>}
       {error && <p className="banner bad">{error}</p>}
-      {!loading && !error && rows.length === 0 && <p className="empty">Ninguém passou pelo gateway ainda.</p>}
+      {!loading && !error && rows.length === 0 && offset === 0 && <p className="empty">Ninguém passou pelo gateway ainda.</p>}
       {rows.length > 0 && (
         <table>
           <thead>
@@ -328,6 +377,19 @@ function Identities({ token }: { token: string }) {
           </tbody>
         </table>
       )}
+      {page && (offset > 0 || page.hasMore) && (
+        <p className="muted">
+          <button className="row-link" type="button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_LIMIT))}>
+            Anteriores
+          </button>
+          {" "}
+          Linhas {offset + 1}–{offset + rows.length}
+          {" "}
+          <button className="row-link" type="button" disabled={page.nextOffset === null} onClick={() => setOffset(page.nextOffset ?? offset)}>
+            Próximas
+          </button>
+        </p>
+      )}
     </section>
   );
 }
@@ -342,10 +404,14 @@ type Identity = {
 };
 
 function IdentityDetail({ token, id }: { token: string; id: string }) {
-  const { data, error, loading } = useAdmin<{ identity: Identity; ledger: Record<string, unknown>[]; payments: Record<string, unknown>[] }>(
-    token,
-    `/awall/identities/${id}`,
-  );
+  const [offset, setOffset] = useState(0);
+  const { data, error, loading } = useAdmin<{
+    identity: Identity;
+    ledger: Record<string, unknown>[];
+    ledgerPage: PageInfo;
+    payments: Record<string, unknown>[];
+  }>(token, `/awall/identities/${id}?limit=${PAGE_LIMIT}&offset=${offset}`);
+  const ledgerPage = data?.ledgerPage;
   return (
     <section>
       <button className="row-link" onClick={() => go("/identities")}>Voltar</button>
@@ -353,7 +419,7 @@ function IdentityDetail({ token, id }: { token: string; id: string }) {
       {loading && <p className="empty">Carregando…</p>}
       {error && <p className="banner bad">{error}</p>}
       {data && <p className="lede">Saldo {data.identity.creditBalance} créditos. Multiplicador {data.identity.multiplier.toFixed(2)}×.</p>}
-      {data && data.ledger.length === 0 && <p className="empty">Extrato vazio.</p>}
+      {data && data.ledger.length === 0 && offset === 0 && <p className="empty">Extrato vazio.</p>}
       {data && data.ledger.length > 0 && (
         <table>
           <thead><tr><th>Quando</th><th>Motivo</th><th>Delta</th></tr></thead>
@@ -367,6 +433,19 @@ function IdentityDetail({ token, id }: { token: string; id: string }) {
             ))}
           </tbody>
         </table>
+      )}
+      {ledgerPage && (offset > 0 || ledgerPage.hasMore) && (
+        <p className="muted">
+          <button className="row-link" type="button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_LIMIT))}>
+            Anteriores
+          </button>
+          {" "}
+          Lançamentos {offset + 1}–{offset + (data?.ledger.length ?? 0)}
+          {" "}
+          <button className="row-link" type="button" disabled={ledgerPage.nextOffset === null} onClick={() => setOffset(ledgerPage.nextOffset ?? offset)}>
+            Próximos
+          </button>
+        </p>
       )}
     </section>
   );

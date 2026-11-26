@@ -121,23 +121,119 @@ export async function listUsageRollups(
   return db.select().from(usageRollups).where(where).orderBy(desc(usageRollups.hour));
 }
 
-/** Every identity, most recently seen first. */
-export async function listIdentities(db: Database, limit = 200): Promise<Identity[]> {
-  return db.select().from(identities).orderBy(desc(identities.lastSeenAt)).limit(limit);
+/**
+ * Identities, most recently seen first.
+ *
+ * `limit` and `offset` are a page, not a safety net: the caller asks for one
+ * more row than it shows to find out whether another page exists. Ordering is
+ * by `last_seen_at` and then by `id`, so a row never moves between pages when
+ * two identities share the same timestamp.
+ *
+ * @param db - Connection or open transaction.
+ * @param limit - Rows to return.
+ * @param offset - Rows to skip.
+ * @returns The page, newest first.
+ */
+export async function listIdentities(
+  db: Database,
+  limit = 200,
+  offset = 0,
+): Promise<Identity[]> {
+  return db
+    .select()
+    .from(identities)
+    .orderBy(desc(identities.lastSeenAt), desc(identities.id))
+    .limit(limit)
+    .offset(offset);
 }
 
-/** Ledger lines of one identity, newest first. */
+/**
+ * Ledger lines of one identity, newest first.
+ *
+ * @param db - Connection or open transaction.
+ * @param identityId - Identity whose statement is read.
+ * @param limit - Rows to return.
+ * @param offset - Rows to skip.
+ * @returns The page, newest first.
+ */
 export async function listLedgerEntries(
   db: Database,
   identityId: string,
   limit = 100,
+  offset = 0,
 ): Promise<CreditLedgerEntry[]> {
   return db
     .select()
     .from(creditLedger)
     .where(eq(creditLedger.identityId, identityId))
     .orderBy(desc(creditLedger.id))
-    .limit(limit);
+    .limit(limit)
+    .offset(offset);
+}
+
+/** How many identities exist and the mean abuse score across all of them. */
+export type AbuseSummary = { identities: number; avgScore: number };
+
+/**
+ * Mean abuse score over **every** identity.
+ *
+ * Averaging a page of rows in the gateway would print a number that describes
+ * the page and claims to describe the tenant, so the aggregate is computed in
+ * SQL over the whole table.
+ *
+ * @param db - Connection or open transaction.
+ * @returns Row count and mean score; zeros when no identity exists.
+ */
+export async function summarizeAbuse(db: Database): Promise<AbuseSummary> {
+  const [row] = await db
+    .select({
+      identities: sql<number>`count(*)::int`,
+      avgScore: sql<number>`coalesce(avg(${identities.abuseScore}), 0)::float8`,
+    })
+    .from(identities);
+  return {
+    identities: Number(row?.identities ?? 0),
+    avgScore: Number(row?.avgScore ?? 0),
+  };
+}
+
+/** Result of the cheapest possible round trip to Postgres. */
+export type DatabaseProbe =
+  | { ok: true; latencyMs: number }
+  | { ok: false; latencyMs: number; code: string };
+
+/**
+ * Ask Postgres one trivial question and time the answer.
+ *
+ * The health screen may not print `ok` for a database it never spoke to, so
+ * this runs a real `select 1`. A failure returns the driver's error **code**
+ * and never its message: a message can carry the connection string, and that
+ * string carries a password.
+ *
+ * @param db - Connection or open transaction.
+ * @returns Whether the round trip worked, and how long it took.
+ */
+export async function probeDatabase(db: Database): Promise<DatabaseProbe> {
+  const started = performance.now();
+  try {
+    await db.execute(sql`select 1`);
+    return { ok: true, latencyMs: elapsedMs(started) };
+  } catch (error) {
+    return { ok: false, latencyMs: elapsedMs(started), code: errorCode(error) };
+  }
+}
+
+function elapsedMs(started: number): number {
+  return Math.round((performance.now() - started) * 1000) / 1000;
+}
+
+/** Driver error code, or the error class name when the driver gives none. */
+function errorCode(error: unknown): string {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = Reflect.get(error, "code");
+    if (typeof code === "string" && code.length > 0) return code;
+  }
+  return error instanceof Error ? error.name : "unknown";
 }
 
 /** Payments, newest first, optionally filtered by status. */

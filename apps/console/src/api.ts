@@ -32,6 +32,37 @@ export type LiveEvent = {
   transaction?: string;
 };
 
-export function streamUrl(token: string): string {
-  return `${gatewayUrl()}/awall/stats/stream?access_token=${encodeURIComponent(token)}`;
+/**
+ * Mint a single-use ticket for the live stream.
+ *
+ * `EventSource` cannot send an `Authorization` header, so something has to ride
+ * in the URL. The admin token never does: a URL ends up in the gateway access
+ * log, in every proxy in front of it and in browser history. This ticket is
+ * minted with the header, works once, and expires in seconds.
+ *
+ * @param token - Admin token, sent in the header of this request only.
+ * @returns The ticket value.
+ * @throws When the gateway refuses the token or answers no ticket.
+ */
+export async function streamTicket(token: string): Promise<string> {
+  const response = await admin("/awall/stats/stream-ticket", token, { method: "POST" });
+  if (!response.ok) throw new Error(`${response.status}`);
+  const body: { ticket?: unknown } = await response.json();
+  if (typeof body.ticket !== "string" || body.ticket.length === 0) {
+    throw new Error("no_ticket");
+  }
+  return body.ticket;
 }
+
+/** Stream URL for a minted ticket. Never called with the admin token. */
+export function streamUrl(ticket: string): string {
+  return `${gatewayUrl()}/awall/stats/stream?ticket=${encodeURIComponent(ticket)}`;
+}
+
+/** A page of rows, as every paged control-plane endpoint reports it. */
+export type PageInfo = {
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  nextOffset: number | null;
+};
