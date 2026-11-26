@@ -23,8 +23,8 @@ depuração e de demonstração.
 | --- | --- |
 | Rede (default) | `stellar:testnet` (CAIP-2) |
 | Rede (produção, atrás de flag) | `stellar:pubnet` |
-| Ativo | USDC, contrato SAC `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` em testnet |
-| Decimais | **7** (padrão Stellar) |
+| Ativo | USDC SAC `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` e XLM nativo SAC `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` em testnet. O mesmo 402 anuncia os dois; um pagamento em qualquer um credita o pacote |
+| Decimais | **7** (padrão Stellar, inclusive XLM) |
 | Soroban RPC | `https://soroban-testnet.stellar.org` |
 | Facilitator | `https://www.x402.org/facilitator` — o `/supported` público já anuncia `{"scheme":"exact","network":"stellar:testnet","extra":{"areFeesSponsored":true}}` |
 
@@ -80,7 +80,22 @@ Objeto `PaymentRequired` (o mesmo que vai em base64 no header):
       "extra": {
         "areFeesSponsored": true,
         "packCredits": 10000,
-        "offerId": "ofr_01JDX7..."
+        "offerId": "ofr_01JDX7...",
+        "assetCode": "USDC"
+      }
+    },
+    {
+      "scheme": "exact",
+      "network": "stellar:testnet",
+      "amount": "68000000",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "payTo": "GBHEGW3KWOY2OFH767EDALFGCUTBOEVBDQMCKU4APMDLQNBW5QV3W3KO",
+      "maxTimeoutSeconds": 60,
+      "extra": {
+        "areFeesSponsored": true,
+        "packCredits": 10000,
+        "offerId": "ofr_01JDX7...",
+        "assetCode": "XLM"
       }
     },
     {

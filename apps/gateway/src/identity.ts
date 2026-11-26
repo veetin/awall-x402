@@ -1,11 +1,5 @@
 import { createHash } from "node:crypto";
-
-export type Identity = {
-  id: string;
-  kind: "api_key" | "wallet" | "fingerprint";
-  /** Abuse score in [0, 1]. Always 0 until the scoring step lands. */
-  abuseScore: number;
-};
+import type { EnsureIdentityInput } from "@awall/ledger";
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -20,37 +14,29 @@ function apiKeyFrom(headers: Headers): string | undefined {
 }
 
 /**
- * In-memory identity registry.
+ * Derive a stable identity from the request.
  *
- * Only an API key or a request fingerprint is resolved for now; wallet-based
- * identity arrives with settlement. See docs/02-arquitetura.md.
+ * The id is a hash, not a random nanoid, so the same key resolves to the same
+ * row after a restart. The API key itself is never stored: only its SHA-256.
+ *
+ * @param headers - Request headers.
+ * @param remoteAddress - Socket address, used only in the fingerprint fallback.
+ * @returns The identity to upsert.
  */
-export class IdentityStore {
-  private readonly byId = new Map<string, Identity>();
-
-  /**
-   * Resolve who is calling.
-   *
-   * @param headers - Request headers.
-   * @param remoteAddress - Socket address, used only in the fallback.
-   * @returns The identity, created on first sight.
-   */
-  resolve(headers: Headers, remoteAddress: string): Identity {
-    const apiKey = apiKeyFrom(headers);
-    const identity: Identity = apiKey
-      ? { id: `idt_k_${sha256(apiKey).slice(0, 16)}`, kind: "api_key", abuseScore: 0 }
-      : {
-          id: `idt_f_${sha256(`${remoteAddress}|${headers.get("user-agent") ?? ""}`).slice(0, 16)}`,
-          kind: "fingerprint",
-          abuseScore: 0,
-        };
-    const known = this.byId.get(identity.id);
-    if (known) return known;
-    this.byId.set(identity.id, identity);
-    return identity;
+export function describeIdentity(headers: Headers, remoteAddress: string): EnsureIdentityInput {
+  const apiKey = apiKeyFrom(headers);
+  if (apiKey) {
+    const hash = sha256(apiKey);
+    return {
+      id: `idt_k_${hash.slice(0, 16)}`,
+      kind: "api_key",
+      apiKeyHash: hash,
+    };
   }
-
-  all(): Identity[] {
-    return [...this.byId.values()];
-  }
+  const fingerprint = sha256(`${remoteAddress}|${headers.get("user-agent") ?? ""}`);
+  return {
+    id: `idt_f_${fingerprint.slice(0, 16)}`,
+    kind: "fingerprint",
+    fingerprint,
+  };
 }

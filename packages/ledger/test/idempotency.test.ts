@@ -15,10 +15,12 @@ const OFFER = {
   packCredits: 10_000,
   // 0.50 USDC with 7 decimals. An EVM example (6 decimals) would be off by 10x.
   priceUsdcAtomic: "5000000",
+  priceXlmAtomic: "50000000",
   priceBrlCents: 250,
   multiplier: 1,
   network: "stellar:testnet",
   asset: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+  xlmAsset: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
   payTo: "GA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVSGZ",
   rails: ["exact" as const],
 };

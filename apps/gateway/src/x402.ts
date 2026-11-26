@@ -1,72 +1,84 @@
-import type { Offer } from "./offers.js";
+import type { Offer } from "@awall/ledger";
+import { buildPixRequirements, type PixPaymentRequirements } from "@awall/pix";
+import {
+  encodeHeader,
+  type PaymentRequired,
+  type PaymentRequirements,
+} from "@awall/settlement";
 import type { GatewayConfig } from "./config.js";
 
-/** x402 v2 `PaymentRequirements`. */
-export type PaymentRequirements = {
-  scheme: string;
-  network: string;
-  amount: string;
-  asset: string;
-  payTo: string;
-  maxTimeoutSeconds: number;
-  extra: Record<string, unknown>;
-};
+/** Advertised window for an exact Stellar authorization. */
+export const EXACT_TIMEOUT_SECONDS = 60;
 
-/** x402 v2 `PaymentRequired`. */
-export type PaymentRequired = {
-  x402Version: 2;
-  error?: string;
-  resource: {
-    url: string;
-    description?: string;
-    mimeType?: string;
-    serviceName?: string;
-  };
-  accepts: PaymentRequirements[];
-  extensions: Record<string, unknown>;
-};
+export type StellarAssetKind = "usdc" | "xlm";
 
 /**
- * Build the two payment rails advertised for an offer.
+ * Terms of one `exact` Stellar rail, read from the stored offer.
  *
- * The `exact` rail settles USDC on Stellar; `extra.areFeesSponsored` is required
- * by the Stellar binding. The `pix` rail is the scheme specified in
- * specs/scheme_pix.md, for agents with a human in the loop.
+ * The amount is the offer's, never a figure the client sends back. USDC and
+ * XLM share the same offer id so either payment credits the same pack.
  *
- * @param offer - The offer being charged for.
- * @param config - Gateway configuration.
- * @returns The `accepts` array, `exact` first.
+ * @param offer - Offer row.
+ * @param kind - Which Stellar asset to advertise.
+ * @returns One `PaymentRequirements` entry.
  */
-export function buildAccepts(offer: Offer, config: GatewayConfig): PaymentRequirements[] {
-  return [
-    {
-      scheme: "exact",
-      network: config.network,
-      amount: offer.usdcAtomic,
-      asset: config.asset,
-      payTo: config.payTo,
-      maxTimeoutSeconds: 60,
-      extra: {
-        areFeesSponsored: true,
-        packCredits: offer.packCredits,
-        offerId: offer.id,
-      },
+export function exactRequirements(offer: Offer, kind: StellarAssetKind = "usdc"): PaymentRequirements {
+  const isXlm = kind === "xlm";
+  return {
+    scheme: "exact",
+    network: offer.network as `${string}:${string}`,
+    amount: isXlm ? offer.priceXlmAtomic : offer.priceUsdcAtomic,
+    asset: isXlm ? offer.xlmAsset : offer.asset,
+    payTo: offer.payTo,
+    maxTimeoutSeconds: EXACT_TIMEOUT_SECONDS,
+    extra: {
+      areFeesSponsored: true,
+      packCredits: offer.packCredits,
+      offerId: offer.id,
+      assetCode: isXlm ? "XLM" : "USDC",
     },
-    {
-      scheme: "pix",
-      network: "pix:bcb",
-      amount: String(offer.brlCents),
-      asset: "BRL",
-      payTo: "merchant",
-      maxTimeoutSeconds: 900,
-      extra: {
-        checkoutUrl: `${config.checkoutBaseUrl}/pay/${offer.id}`,
-        statusUrl: `${config.publicBaseUrl}/awall/offers/${offer.id}`,
-        packCredits: offer.packCredits,
-        offerId: offer.id,
-      },
-    },
-  ];
+  };
+}
+
+/**
+ * Pick the exact-rail terms that match what the client signed.
+ *
+ * @param offer - Stored offer.
+ * @param acceptedAsset - Asset contract from `PaymentPayload.accepted.asset`.
+ * @returns The matching requirements, or `null` when the asset is unknown.
+ */
+export function exactRequirementsForAsset(
+  offer: Offer,
+  acceptedAsset: string,
+): PaymentRequirements | null {
+  if (acceptedAsset === offer.asset) return exactRequirements(offer, "usdc");
+  if (acceptedAsset === offer.xlmAsset) return exactRequirements(offer, "xlm");
+  return null;
+}
+
+/**
+ * Terms of the `pix` rail for the same offer.
+ *
+ * @param offer - Offer row. A missing charge id falls back to a local id so the
+ *   rail is still advertised when the provider is not configured.
+ * @param config - Public URLs of the checkout and the gateway.
+ * @param prefix - Control-plane prefix, usually `/awall`.
+ * @returns The requirements object from `@awall/pix`.
+ */
+export function pixRequirements(
+  offer: Offer,
+  config: GatewayConfig,
+  prefix: string,
+): PixPaymentRequirements {
+  return buildPixRequirements({
+    amountCents: BigInt(offer.priceBrlCents),
+    chargeId: offer.pixChargeId ?? `local_${offer.id}`,
+    checkoutUrl: `${config.checkoutBaseUrl}/pay/${offer.id}`,
+    statusUrl: `${config.publicBaseUrl}${prefix}/offers/${offer.id}`,
+    ...(offer.pixBrCode ? { brCode: offer.pixBrCode } : {}),
+    expiresAt: offer.expiresAt,
+    maxTimeoutSeconds: 900,
+  });
 }
 
 /**
@@ -75,12 +87,14 @@ export function buildAccepts(offer: Offer, config: GatewayConfig): PaymentRequir
  * @param requestUrl - Full URL of the request that was refused.
  * @param offer - The offer being charged for.
  * @param config - Gateway configuration.
- * @returns The object to encode into the `PAYMENT-REQUIRED` header.
+ * @param prefix - Control-plane prefix.
+ * @returns The object to encode into the `PAYMENT-REQUIRED` header and the body.
  */
 export function buildPaymentRequired(
   requestUrl: string,
   offer: Offer,
   config: GatewayConfig,
+  prefix: string,
 ): PaymentRequired {
   return {
     x402Version: 2,
@@ -91,17 +105,13 @@ export function buildPaymentRequired(
       mimeType: "application/json",
       serviceName: "AWall",
     },
-    accepts: buildAccepts(offer, config),
+    accepts: [
+      exactRequirements(offer, "usdc"),
+      exactRequirements(offer, "xlm"),
+      pixRequirements(offer, config, prefix),
+    ] as PaymentRequired["accepts"],
     extensions: {},
   };
 }
 
-/** Encode an x402 object for a header. */
-export function encodeHeader(value: unknown): string {
-  return Buffer.from(JSON.stringify(value), "utf8").toString("base64");
-}
-
-/** Decode an x402 header back into an object. */
-export function decodeHeader<T>(value: string): T {
-  return JSON.parse(Buffer.from(value, "base64").toString("utf8")) as T;
-}
+export { encodeHeader };

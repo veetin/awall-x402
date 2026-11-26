@@ -2,8 +2,8 @@
 # End-to-end check of the free quota -> 402 path.
 #
 # Starts the demo origin and the gateway, spends the free quota, shows the 402
-# with both payment rails, and reads the offer status. Settlement is not part of
-# this script yet: see docs/05-roadmap.md.
+# with both payment rails, and reads the offer status. A signed payment needs
+# testnet USDC and STELLAR_SECRET; without them the agent step is skipped.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -78,5 +78,17 @@ echo "== origin failure refunds the quota"
 curl -s -o /dev/null -D "$LOG_DIR/flaky.h" \
   -H "x-api-key: refund-$RANDOM" "http://127.0.0.1:$AWALL_PORT/v1/flaky?fail=1"
 grep -i "x-awall-free-remaining-credits" "$LOG_DIR/flaky.h" | sed 's/^/   /'
+
+echo "== control plane without a token"
+curl -s -o /dev/null -w "   summary %{http_code}\n" "http://127.0.0.1:$AWALL_PORT/awall/stats/summary"
+
+if [ -n "${STELLAR_SECRET:-}" ]; then
+  echo "== agent dry-run (signs, does not resubmit)"
+  pnpm --dir "$ROOT" --filter @awall/agent-m2m start -- \
+    --dry-run --requests 3 \
+    --url "http://127.0.0.1:$AWALL_PORT/v1/search?q=camera"
+else
+  echo "== agent skipped (set STELLAR_SECRET to sign a testnet payment)"
+fi
 
 echo "== done"

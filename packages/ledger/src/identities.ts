@@ -60,3 +60,22 @@ export async function getIdentity(db: Database, id: string): Promise<Identity | 
   const [row] = await db.select().from(identities).where(eq(identities.id, id));
   return row ?? null;
 }
+
+/**
+ * Persist the abuse score. Does not touch the credit balance.
+ *
+ * @param db - Connection or open transaction.
+ * @param id - Identity id.
+ * @param abuseScore - Score in [0, 1].
+ */
+export async function updateAbuseScore(
+  db: Database,
+  id: string,
+  abuseScore: number,
+): Promise<void> {
+  const clamped = Math.min(1, Math.max(0, abuseScore));
+  await db
+    .update(identities)
+    .set({ abuseScore: clamped, lastSeenAt: new Date() })
+    .where(eq(identities.id, id));
+}

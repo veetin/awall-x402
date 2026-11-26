@@ -311,6 +311,99 @@ export async function getBalance(db: Database, identityId: string): Promise<bigi
  * @param identityId - Identity to read.
  * @returns The sum of `delta_credits`, zero when there are no entries.
  */
+export type PromoteResult =
+  | GrantResult
+  | { ok: false; reason: "unknown_payment" | "not_pending" };
+
+/**
+ * Credit a payment that was recorded as `pending` once its transaction confirms.
+ *
+ * `settlement_pending` is not a failure. The first settle inserts a payment row
+ * and does not touch the balance. This function moves that row to `settled` and
+ * grants the pack, once, keyed by the same idempotency key (the transaction hash).
+ *
+ * @param db - Connection or open transaction.
+ * @param input - Idempotency key of the pending payment, plus the confirming receipt.
+ * @returns The grant result, or why the payment could not be promoted.
+ */
+export async function promotePendingPayment(
+  db: Database,
+  input: {
+    idempotencyKey: string;
+    payer?: string | null;
+    settleResponse?: unknown;
+  },
+): Promise<PromoteResult> {
+  return db.transaction(async (tx) => {
+    const [pending] = await tx
+      .update(payments)
+      .set({
+        status: "settled",
+        errorReason: null,
+        ...(input.payer === undefined ? {} : { payer: input.payer }),
+        ...(input.settleResponse === undefined ? {} : { settleResponse: input.settleResponse }),
+      })
+      .where(and(eq(payments.idempotencyKey, input.idempotencyKey), eq(payments.status, "pending")))
+      .returning();
+
+    if (!pending) {
+      const [existing] = await tx
+        .select()
+        .from(payments)
+        .where(eq(payments.idempotencyKey, input.idempotencyKey));
+      if (!existing) return { ok: false, reason: "unknown_payment" };
+      if (existing.status === "settled") {
+        const [entry] = await tx
+          .select({ id: creditLedger.id, balanceAfter: creditLedger.balanceAfter })
+          .from(creditLedger)
+          .where(eq(creditLedger.paymentId, existing.id));
+        return {
+          ok: true,
+          paymentId: existing.id,
+          credited: false,
+          alreadyProcessed: true,
+          balanceAfter: entry?.balanceAfter ?? 0n,
+          entryId: entry?.id ?? null,
+        };
+      }
+      return { ok: false, reason: "not_pending" };
+    }
+
+    const [offer] = await tx.select().from(offers).where(eq(offers.id, pending.offerId));
+    if (!offer) throw new Error(`pending payment has no offer: ${pending.offerId}`);
+
+    await tx
+      .update(offers)
+      .set({ status: "paid" })
+      .where(and(eq(offers.id, offer.id), eq(offers.status, "pending")));
+
+    const [locked] = await tx
+      .select({ balance: identities.creditBalance })
+      .from(identities)
+      .where(eq(identities.id, offer.identityId))
+      .for("update");
+    if (!locked) throw new Error(`unknown identity: ${offer.identityId}`);
+
+    const amount = toCredits(offer.packCredits, "grant amount");
+    const entry = await writeEntry(tx, {
+      identityId: offer.identityId,
+      delta: amount,
+      reason: "grant",
+      usageEventId: null,
+      paymentId: pending.id,
+      balanceAfter: locked.balance + amount,
+    });
+    return {
+      ok: true,
+      paymentId: pending.id,
+      credited: true,
+      alreadyProcessed: false,
+      balanceAfter: entry.balanceAfter,
+      entryId: entry.entryId,
+    };
+  });
+}
+
 export async function ledgerSum(db: Database, identityId: string): Promise<bigint> {
   const [row] = await db
     .select({ total: sql<string>`coalesce(sum(${creditLedger.deltaCredits}), 0)` })
