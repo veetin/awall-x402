@@ -22,7 +22,10 @@ http:
           - "X-AWall-Identity"
           - "X-AWall-Cost-Credits"
           - "X-AWall-Reservation"
-        maxResponseBodySize: 65536
+        # No forwardBody: the decision reads the method and the path, never the
+        # body, so the body never leaves the edge. Traefik v3 has no response
+        # body limit on forwardAuth; the 402 body the gateway returns is small
+        # and is passed through as it is.
 
   services:
     awall:
