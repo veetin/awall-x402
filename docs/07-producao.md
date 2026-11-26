@@ -199,6 +199,32 @@ reserva desconhecida: depois do prazo a borda não decide mais quanto a requisi�
 custou. O prazo também limita a memória do processo, porque uma borda que nunca
 reporta deixaria a reserva viva para sempre.
 
+## O stack de deploy
+
+`deploy/docker-compose.yml` é a forma de deploy: Postgres, aplicação, gateway,
+console e Caddy na frente de tudo, com uma imagem só (`deploy/Dockerfile`) e o
+comando trocado por serviço. Nenhum segredo no arquivo: todo valor vem do
+ambiente, e `.env.example` lista os nomes.
+
+Com `AWALL_DOMAIN` apontando para um nome público, o endereço do site no
+`Caddyfile` passa a ser esse nome e o Caddy emite e renova o certificado
+sozinho; sem a variável, o endereço é `:80`, que é a forma local. A porta 80
+precisa continuar acessível, porque é onde o desafio ACME cai.
+
+Duas coisas que o arquivo resolve e que a execução provou:
+
+- `AWALL_ORIGIN` sobrescreve o `origin` do arquivo de política. A política do
+  repositório nomeia `http://localhost:8787`, que está certo num laptop e
+  errado dentro de qualquer rede de containers. No boot o gateway loga qual
+  origin está usando.
+- `DATABASE_URL` aponta para o Postgres do stack, e as migrations rodam no
+  boot. Uma offer lida com `GET /awall/offers/:id` continua respondendo `202`
+  depois de `docker compose restart gateway`, que é o teste que distingue
+  Postgres de PGlite.
+
+O passo a passo, com a lista do que configurar antes de chamar de produção,
+está em `deploy/README.md`.
+
 ## Estado, réplicas e latência
 
 O que hoje está em memória e precisa sair de lá antes de produção:

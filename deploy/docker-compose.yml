@@ -1,11 +1,36 @@
-# Local stack: origin, gateway, console, and Caddy in front.
-# This is the deploy shape. It is not a public host by itself.
+# The deploy shape: Postgres, the protected application, the gateway, the
+# console and Caddy in front of all of it.
+#
+# `docker compose up` on a machine with a public name and `AWALL_DOMAIN` set
+# gives HTTPS with certificates Caddy obtains and renews on its own. Without
+# `AWALL_DOMAIN` it serves plain HTTP on :80, which is the local shape.
+#
+# Everything here reads from the environment, so no secret lives in this file.
+# See deploy/README.md for the checklist.
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-awall}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-awall}
+      POSTGRES_DB: ${POSTGRES_DB:-awall}
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      # The gateway applies migrations at boot, so it must not start before
+      # Postgres answers.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-awall} -d ${POSTGRES_DB:-awall}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
   origin:
-    image: node:22-bookworm-slim
-    working_dir: /app
-    command: ["sh", "-c", "corepack enable && pnpm --filter @awall/origin-demo start"]
-    volumes: [ "..:/app" ]
+    # Stand-in for the protected API. Point `AWALL_ORIGIN` at the real one and
+    # drop this service.
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: ["pnpm", "--filter", "@awall/origin-demo", "start"]
     environment:
       ORIGIN_PORT: "8787"
 
@@ -16,26 +41,60 @@ services:
     environment:
       AWALL_PORT: "8402"
       AWALL_POLICY: /app/awall.yaml
+      # The policy file names a localhost port, which is not where the
+      # application lives inside this network.
+      AWALL_ORIGIN: ${AWALL_ORIGIN:-http://origin:8787}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-awall}:${POSTGRES_PASSWORD:-awall}@db:5432/${POSTGRES_DB:-awall}}
+      STELLAR_NETWORK: ${STELLAR_NETWORK:-stellar:testnet}
       STELLAR_PAY_TO: ${STELLAR_PAY_TO:-}
+      STELLAR_ASSET: ${STELLAR_ASSET:-}
+      X402_FACILITATOR_URL: ${X402_FACILITATOR_URL:-}
       AWALL_ADMIN_TOKEN: ${AWALL_ADMIN_TOKEN:-}
+      AWALL_TRUST_PROXY: "1"
       AWALL_CONSOLE_ORIGIN: ${AWALL_CONSOLE_ORIGIN:-http://localhost}
+      AWALL_PUBLIC_BASE_URL: ${AWALL_PUBLIC_BASE_URL:-http://localhost}
       AWALL_CHECKOUT_BASE_URL: ${AWALL_CHECKOUT_BASE_URL:-http://localhost/pay}
-      DATABASE_URL: ${DATABASE_URL:-}
+      REDIS_URL: ${REDIS_URL:-}
       ABACATEPAY_API_KEY: ${ABACATEPAY_API_KEY:-}
       ABACATEPAY_WEBHOOK_SECRET: ${ABACATEPAY_WEBHOOK_SECRET:-}
-    depends_on: [origin]
+    depends_on:
+      db:
+        condition: service_healthy
+      origin:
+        condition: service_started
 
   console:
-    image: node:22-bookworm-slim
-    working_dir: /app
-    command: ["sh", "-c", "corepack enable && pnpm --filter @awall/console dev --host 0.0.0.0 --port 4179"]
-    volumes: [ "..:/app" ]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    # The console is a static bundle served by Vite's preview server. The URL
+    # is baked in at build time, so it is built here and not in the image.
+    command:
+      [
+        "sh",
+        "-c",
+        "pnpm --filter @awall/console build && pnpm --filter @awall/console preview --host 0.0.0.0 --port 4179",
+      ]
     environment:
       VITE_AWALL_URL: ${VITE_AWALL_URL:-http://localhost}
+    depends_on: [gateway]
 
   caddy:
     image: caddy:2
-    ports: [ "80:80" ]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Caddy serves `:80` when this is empty, and the named host over HTTPS
+      # when it is set.
+      AWALL_DOMAIN: ${AWALL_DOMAIN:-:80}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
     depends_on: [gateway, console]
+
+volumes:
+  db:
+  caddy-data:
+  caddy-config:

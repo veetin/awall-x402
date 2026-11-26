@@ -45,6 +45,11 @@ if (active) {
   else log({ msg: "active policy failed validation, keeping yaml", versionId: active.id });
 }
 
+// A deployment addresses the application by its own hostname, which the policy
+// file in the repository cannot know. The override keeps one policy file usable
+// in development and in a deployment.
+if (config.originUrl) policy = { ...policy, origin: config.originUrl };
+
 if (!config.payTo) {
   log({ msg: "STELLAR_PAY_TO is empty: the exact rail will advertise an empty payTo" });
 }
