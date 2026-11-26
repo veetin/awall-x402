@@ -79,7 +79,7 @@ header `PAYMENT-REQUIRED` intacto:
 | Borda | Propaga `402` com corpo e headers? | Observação |
 | --- | --- | --- |
 | **Traefik** `forwardAuth` | **Sim.** Resposta não-2xx do serviço de auth é devolvida ao cliente com status, corpo e headers | Verificado em Traefik v3.2 por `./scripts/traefik-proof.sh`. O `forwardAuth` do v3 não tem limite de corpo de resposta: `maxResponseBodySize` não é campo válido e a configuração é recusada inteira se ele aparecer |
-| **Envoy** `ext_authz` | **Sim.** `DeniedHttpResponse` tem `status`, `headers` e `body` | Caminho mais limpo para alto volume; use a variante gRPC |
+| **Envoy** `ext_authz` | **Sim.** `DeniedHttpResponse` tem `status`, `headers` e `body` | Verificado em Envoy v1.32 por `./scripts/envoy-proof.sh`. Na variante HTTP, **só `200` libera**: qualquer outro status, `204` inclusive, é tratado como negação e devolvido ao cliente |
 | **nginx** `auth_request` | **Não.** Só `2xx`, `401` e `403` são respostas válidas; qualquer outro status da subrequisição é tratado como erro e o cliente recebe `500` | Dá para contornar com `auth_request_set $awall_status $upstream_status` mais `error_page`, mas o corpo e os headers da subrequisição **não** passam, então os termos de pagamento se perdem. Com nginx puro, use o Modo A, ou monte a resposta com njs/OpenResty |
 
 ### Provando o Modo B contra um Traefik de verdade
@@ -107,6 +107,31 @@ substituídos — e verifica quatro coisas:
 O script falha se o Traefik recusar a configuração, o que foi exatamente o que
 aconteceu na primeira execução: `maxResponseBodySize` não existe no
 `forwardAuth` do v3 e derrubava toda a configuração dinâmica.
+
+### Envoy pede três coisas que o Traefik não pede
+
+`./scripts/envoy-proof.sh` roda as mesmas quatro verificações do script do
+Traefik contra um Envoy v1.32 em Docker, com o `deploy/envoy/envoy.yaml` deste
+repositório. Três diferenças saíram dessa execução, e as três estão no arquivo:
+
+1. **`200` é a única resposta que libera.** O `ext_authz` em HTTP trata todo
+   status diferente de `200` como negação e devolve a resposta do serviço de
+   auth ao cliente — com `204` o cliente recebia `204` e nunca chegava na
+   aplicação. Por isso `GET /awall/decide` continua respondendo `204` (Traefik
+   aceita qualquer `2xx`) e a subárvore `GET /awall/decide/<caminho>`, que é o
+   formato que o Envoy usa, responde `200`.
+2. **Não existe `X-Forwarded-Uri`.** O Envoy manda o método original e
+   pendura o caminho original no `path_prefix` do filtro. O gateway lê a
+   requisição sob decisão do próprio caminho quando o header não vem.
+3. **Headers não passam sozinhos.** Sem `authorization_request.allowed_headers`
+   o `Authorization` não chega no gateway e toda requisição parece de um
+   cliente novo; sem `authorization_response.allowed_upstream_headers` a
+   aplicação não recebe `X-AWall-Reservation` e não consegue reportar consumo;
+   sem `allowed_client_headers` o `PAYMENT-REQUIRED` não chega ao cliente.
+
+O arquivo também tinha dois erros que impediam o Envoy de subir: a rota com
+`headers` precisava de um `path_specifier` ao lado, e `ExtAuthzPerRoute` só
+aceita `disabled: true` — `disabled: false` derruba a configuração inteira.
 
 ### Requisições que carregam pagamento não passam pelo ForwardAuth
 

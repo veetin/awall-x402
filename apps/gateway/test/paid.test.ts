@@ -543,6 +543,47 @@ describe("decision mode", () => {
     expect(denied.headers.get("PAYMENT-REQUIRED")).toBeTruthy();
   });
 
+  it("reads the request off the path and allows with 200, the way Envoy needs", async () => {
+    const db = await createTestDb();
+    const app = createApp(config, policySchema.parse(basePolicy()), { db });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+
+    // Envoy ext_authz sends no X-Forwarded-Uri: it appends the original path
+    // to the filter's path_prefix and keeps the original method. It also
+    // allows on 200 only, and denies on every other status, 204 included.
+    const ok = await app.request("/awall/decide/v1/search?q=envoy", {
+      headers: { "x-api-key": "envoy-edge" },
+    });
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get("X-AWall-Reservation")).toBeTruthy();
+    // Same route, same price as the header-driven call that Traefik makes.
+    const viaHeaders = await app.request("/awall/decide", {
+      headers: {
+        "x-forwarded-method": "GET",
+        "x-forwarded-uri": "/v1/search?q=envoy",
+        "x-api-key": "envoy-edge",
+      },
+    });
+    expect(viaHeaders.status).toBe(204);
+    expect(ok.headers.get("X-AWall-Cost-Credits")).toBe(
+      viaHeaders.headers.get("X-AWall-Cost-Credits"),
+    );
+
+    // The route it decided on is the one in the path, not the decision route:
+    // a path the policy does not list is refused, and the method counts too,
+    // since POST on a GET-only route is a different route.
+    const unknown = await app.request("/awall/decide/v1/nope", {
+      headers: { "x-api-key": "envoy-edge" },
+    });
+    expect(unknown.status).toBe(404);
+
+    const wrongMethod = await app.request("/awall/decide/v1/search", {
+      method: "POST",
+      headers: { "x-api-key": "envoy-edge" },
+    });
+    expect(wrongMethod.status).toBe(404);
+  });
+
   it("refuses an expired reservation and still honours a fresh one", async () => {
     const db = await createTestDb();
     let clock = 1_700_000_000_000;
