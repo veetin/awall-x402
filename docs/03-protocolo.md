@@ -221,6 +221,10 @@ requisição sem crédito, então o gateway recusa com `error:
 offer_identity_mismatch` (`errorReason: invalid_payment_requirements`) **antes**
 de chamar `/verify`, enquanto o dinheiro ainda está com o cliente.
 
+Pela mesma razão, a decisão da política vem primeiro. Uma rota que a política
+nega responde `404` sem liquidação nenhuma: liquidar antes cobraria o cliente por
+uma requisição que o gateway recusa em seguida.
+
 ### O que o facilitator valida (e por que importa para nós)
 
 O binding Stellar impõe ao facilitator uma lista de verificações que o gateway
