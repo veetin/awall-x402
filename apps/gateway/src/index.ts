@@ -4,13 +4,36 @@ import { loadPolicy, policySchema } from "@awall/policy";
 import { FacilitatorClient } from "@awall/settlement";
 import { activePolicyVersion } from "@awall/ledger";
 import { createApp } from "./app.js";
-import { readConfig } from "./config.js";
+import { GatewayConfigError, readConfig, type GatewayConfig } from "./config.js";
 import { openDatabase } from "./db.js";
 import { log } from "./log.js";
 import { SharedQuota } from "./quota.js";
 import { RedisBucketBackend } from "./redis.js";
 
-const config = readConfig();
+/**
+ * Read the configuration, or refuse to start.
+ *
+ * An incomplete pubnet configuration is an operator mistake, not a crash: it
+ * leaves with the names of the missing variables instead of a stack trace.
+ *
+ * @returns Validated configuration.
+ */
+function loadConfig(): GatewayConfig {
+  try {
+    return readConfig();
+  } catch (error: unknown) {
+    if (!(error instanceof GatewayConfigError)) throw error;
+    log({
+      msg: "gateway refused to start: incomplete configuration",
+      network: error.network,
+      missing: error.missing,
+    });
+    process.stderr.write(`${error.message}\n`);
+    process.exit(1);
+  }
+}
+
+const config = loadConfig();
 const yaml = loadPolicy(config.policyPath);
 const db = await openDatabase(config.databaseUrl);
 
