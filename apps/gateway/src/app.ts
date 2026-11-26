@@ -36,6 +36,7 @@ import {
 } from "./settle.js";
 import { createPixCharge, handlePixWebhook, offerStatus } from "./pix-flow.js";
 import { MemoryQuota, type Quota } from "./quota.js";
+import { ReservationStore } from "./reservations.js";
 import { forward, isTimeout, readBody } from "./proxy.js";
 import { meteredCost } from "./meter.js";
 import { buildPaymentRequired, encodeHeader } from "./x402.js";
@@ -128,7 +129,7 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
     },
   };
   const abuse = new Map<string, AbuseState>();
-  const reservations = new Map<string, Reservation>();
+  const reservations = new ReservationStore<Reservation>();
   const prefix = config.controlPrefix;
 
   const app = new Hono();
@@ -163,9 +164,10 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
       body && typeof body === "object" && typeof body.reservationId === "string"
         ? body.reservationId
         : "";
-    const reservation = reservations.get(reservationId);
+    // An expired reservation is refused exactly like an unknown one: after the
+    // lifetime the edge no longer gets to decide what this request cost.
+    const reservation = reservations.take(reservationId, now());
     if (!reservation) return c.json({ error: "reservation_not_found" }, 404);
-    reservations.delete(reservationId);
     const originStatus = typeof body.originStatus === "number" ? body.originStatus : null;
     const outputTokens = typeof body.outputTokens === "number" ? body.outputTokens : null;
     const spend = reservation.spend;
@@ -229,8 +231,14 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
     let state = abuse.get(identity.id) ?? initialAbuseState(identity.abuseScore);
     const policy = holder.current();
     const decision = decide(policy, table, input.method, input.path);
-    const routeLabel =
-      decision.kind === "deny" ? `${input.method} ${input.path}` : (decision.route?.match ?? `${input.method} ${input.path}`);
+
+    // The route is refused before any money moves. Settling first would take the
+    // client's payment for a request that is then answered 404: paid and refused.
+    if (decision.kind === "deny") {
+      return c.json({ error: decision.reason, path: input.path }, 404);
+    }
+
+    const routeLabel = decision.route?.match ?? `${input.method} ${input.path}`;
 
     let settled: SettleSuccess | undefined;
     if (!input.decide && c.req.header("payment-signature")) {
@@ -270,10 +278,6 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
         creditedCredits: result.offer.packCredits,
         transaction: result.response.transaction,
       });
-    }
-
-    if (decision.kind === "deny") {
-      return c.json({ error: decision.reason, path: input.path }, 404);
     }
 
     const bodyRead = input.decide ? { ok: true as const } : await readBody(c.req.raw, config.maxBodyBytes);
@@ -350,13 +354,17 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
 
     if (input.decide) {
       const reservationId = randomBytes(16).toString("hex");
-      reservations.set(reservationId, {
-        identityId: identity.id,
-        route: routeLabel,
-        spend,
-        metered: decision.metered,
-        scope: decision.scope,
-      });
+      reservations.set(
+        reservationId,
+        {
+          identityId: identity.id,
+          route: routeLabel,
+          spend,
+          metered: decision.metered,
+          scope: decision.scope,
+        },
+        now(),
+      );
       const remaining = await quota.remaining(bucketKey, decision.limits, now());
       return allowHeaders(c, identity.id, state, decision.credits, decision.scope, remaining, reservationId);
     }

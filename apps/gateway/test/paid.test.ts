@@ -13,6 +13,7 @@ import { policySchema } from "@awall/policy";
 import { FacilitatorClient, decodeHeader, encodeHeader } from "@awall/settlement";
 import { createApp } from "../src/app.js";
 import { PIX_LATE_CONFIRM_MS } from "../src/pix-flow.js";
+import { RESERVATION_TTL_MS } from "../src/reservations.js";
 import { readConfig } from "../src/config.js";
 import { createTestDb } from "./db.js";
 
@@ -111,6 +112,43 @@ describe("settlement", () => {
     const restarted = createApp(config, policySchema.parse(basePolicy()), { db });
     const again = await restarted.request("/awall/offers/" + offerId);
     expect(again.status).toBe(200);
+    expect(await getBalance(db, identityId)).toBe(9998n);
+  });
+
+  it("refuses a denied route before it settles anything", async () => {
+    const db = await createTestDb();
+    const calls: string[] = [];
+    const app = createApp(config, policySchema.parse(basePolicy()), {
+      db,
+      facilitator: facilitator((path) => {
+        calls.push(path);
+        if (path.endsWith("/verify")) return { isValid: true, payer: "GBUYER" };
+        return { success: true, transaction: TX, network: "stellar:testnet", payer: "GBUYER" };
+      }),
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
+    const { offerId, identityId, amount } = await exhaust(app, "denied-payer");
+
+    // A payable offer and the right amount: only the policy refuses this route.
+    const denied = await app.request("/v1/not-in-the-policy", {
+      headers: {
+        "x-api-key": "denied-payer",
+        "payment-signature": signature(offerId, amount),
+      },
+    });
+    expect(denied.status).toBe(404);
+    await expect(denied.json()).resolves.toMatchObject({ error: "route_not_configured" });
+    // No /verify, no /settle: the client still holds its money.
+    expect(calls).toEqual([]);
+    expect(denied.headers.get("PAYMENT-RESPONSE")).toBeNull();
+    expect(await getBalance(db, identityId)).toBe(0n);
+
+    // The same signature still pays for a route the policy allows.
+    const paid = await app.request("/v1/search", {
+      headers: { "x-api-key": "denied-payer", "payment-signature": signature(offerId, amount) },
+    });
+    expect(paid.status).toBe(200);
+    expect(calls).toEqual(["/verify", "/settle"]);
     expect(await getBalance(db, identityId)).toBe(9998n);
   });
 
@@ -504,6 +542,40 @@ describe("decision mode", () => {
     expect(denied.status).toBe(402);
     expect(denied.headers.get("PAYMENT-REQUIRED")).toBeTruthy();
   });
+
+  it("refuses an expired reservation and still honours a fresh one", async () => {
+    const db = await createTestDb();
+    let clock = 1_700_000_000_000;
+    const app = createApp(config, policySchema.parse(basePolicy()), { db, now: () => clock });
+    const headers = {
+      "x-forwarded-method": "GET",
+      "x-forwarded-uri": "/v1/search",
+      "x-api-key": "edge-ttl",
+    };
+
+    const first = await app.request("/awall/decide", { headers });
+    expect(first.status).toBe(204);
+    const stale = first.headers.get("X-AWall-Reservation") ?? "";
+    expect(stale).toBeTruthy();
+
+    clock += RESERVATION_TTL_MS + 1;
+
+    const second = await app.request("/awall/decide", { headers });
+    expect(second.status).toBe(204);
+    const fresh = second.headers.get("X-AWall-Reservation") ?? "";
+    expect(fresh).toBeTruthy();
+
+    const expired = await report(app, stale);
+    expect(expired.status).toBe(404);
+    await expect(expired.json()).resolves.toMatchObject({ error: "reservation_not_found" });
+
+    const live = await report(app, fresh);
+    expect(live.status).toBe(200);
+    await expect(live.json()).resolves.toMatchObject({ credits: 2, originStatus: 200 });
+
+    // Redeeming it twice is still refused: the usage report consumes the id.
+    expect((await report(app, fresh)).status).toBe(404);
+  });
 });
 
 describe("metered routes", () => {
@@ -709,6 +781,14 @@ async function exhaustToHeader(app: ReturnType<typeof createApp>, key: string): 
 async function pay(app: ReturnType<typeof createApp>, offerId: string, amount: string): Promise<Response> {
   return app.request("/v1/search", {
     headers: { "x-api-key": "payer", "payment-signature": signature(offerId, amount) },
+  });
+}
+
+async function report(app: ReturnType<typeof createApp>, reservationId: string): Promise<Response> {
+  return app.request("/awall/usage", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ reservationId, originStatus: 200 }),
   });
 }
 

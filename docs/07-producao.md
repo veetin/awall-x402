@@ -142,6 +142,12 @@ outro caminho. Duas opções, em ordem de preferência:
 O gateway aceita a medição em `POST /awall/usage`, autorizada pelo
 `X-AWall-Reservation` devolvido no `204`.
 
+A reserva vale 5 minutos (`RESERVATION_TTL_MS` em `apps/gateway/src/reservations.ts`).
+Passado esse prazo o gateway responde `404 reservation_not_found`, igual a uma
+reserva desconhecida: depois do prazo a borda não decide mais quanto a requisição
+custou. O prazo também limita a memória do processo, porque uma borda que nunca
+reporta deixaria a reserva viva para sempre.
+
 ## Estado, réplicas e latência
 
 O que hoje está em memória e precisa sair de lá antes de produção:
