@@ -1,4 +1,4 @@
-import { and, eq, lte } from "drizzle-orm";
+import { and, eq, inArray, lte } from "drizzle-orm";
 import type { Database } from "./db.js";
 import { newOfferId } from "./ids.js";
 import { offers, type Offer } from "./schema.js";
@@ -160,6 +160,27 @@ export async function findOfferByPixCharge(
  * @param status - Terminal status to apply.
  * @returns The updated offer, or `null` when it was not pending.
  */
+/**
+ * Mark an offer paid after its deadline.
+ *
+ * The 15-minute window stops new authorizations; it does not undo money that
+ * arrived. When the Pix provider confirms a charge whose offer the server has
+ * already expired, the offer is still the one that was paid. A `canceled` offer
+ * is left alone.
+ *
+ * @param db - Connection or open transaction.
+ * @param id - Offer id.
+ * @returns The paid offer, or `null` when there was nothing to move.
+ */
+export async function markOfferPaidLate(db: Database, id: string): Promise<Offer | null> {
+  const [row] = await db
+    .update(offers)
+    .set({ status: "paid" })
+    .where(and(eq(offers.id, id), inArray(offers.status, ["pending", "expired"])))
+    .returning();
+  return row ?? null;
+}
+
 export async function closeOffer(
   db: Database,
   id: string,

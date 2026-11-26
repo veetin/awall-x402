@@ -245,11 +245,15 @@ function Revenue({ token }: { token: string }) {
           <article className="card"><span>Créditos</span><strong>{data.credits}</strong></article>
           <article className="card">
             <span>USDC liquidado</span>
-            <strong>{atomic(railAmount(data.revenue, "exact"))}</strong>
+            <strong>{atomic(codeAmount(data.revenue, "USDC"))}</strong>
+          </article>
+          <article className="card">
+            <span>XLM liquidado</span>
+            <strong>{atomic(codeAmount(data.revenue, "XLM"))}</strong>
           </article>
           <article className="card">
             <span>Pix (centavos)</span>
-            <strong>{railAmount(data.revenue, "pix")}</strong>
+            <strong>{codeAmount(data.revenue, "BRL")}</strong>
           </article>
           <article className="card">
             <span>Infra estimada (USD)</span>
@@ -266,13 +270,22 @@ type Summary = {
   requests: number;
   recoveredRequests: number;
   credits: number;
-  revenue: { rail: string; count: number; amount: string }[];
+  revenue: { rail: string; asset: string; code: string; count: number; amount: string }[];
   infra: { estimatedUsd: number };
   abuse: { avgMultiplier: number };
 };
 
-function railAmount(rows: Summary["revenue"], rail: string): string {
-  return rows.find((row) => row.rail === rail)?.amount ?? "0";
+/**
+ * Total of one asset, as an integer string.
+ *
+ * Every asset keeps its own card: USDC and XLM both ride the `exact` rail and
+ * adding their atomic units together would print a number that means nothing.
+ */
+function codeAmount(rows: Summary["revenue"], code: string): string {
+  const total = rows
+    .filter((row) => row.code === code)
+    .reduce((sum, row) => sum + BigInt(row.amount || "0"), 0n);
+  return total.toString();
 }
 
 function atomic(value: string): string {

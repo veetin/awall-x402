@@ -12,6 +12,7 @@ import { AbacatePayClient } from "@awall/pix";
 import { policySchema } from "@awall/policy";
 import { FacilitatorClient, decodeHeader, encodeHeader } from "@awall/settlement";
 import { createApp } from "../src/app.js";
+import { PIX_LATE_CONFIRM_MS } from "../src/pix-flow.js";
 import { readConfig } from "../src/config.js";
 import { createTestDb } from "./db.js";
 
@@ -158,6 +159,70 @@ describe("settlement", () => {
     expect(await getBalance(db, id)).toBe(9998n);
   });
 
+  it("credits a transaction that settles after a terminal failure on the same hash", async () => {
+    const db = await createTestDb();
+    let mode: "failed" | "settled" = "failed";
+    const app = createApp(config, policySchema.parse(basePolicy()), {
+      db,
+      facilitator: facilitator((path) => {
+        if (path.endsWith("/verify")) return { isValid: true, payer: "GBUYER" };
+        if (mode === "failed") {
+          return {
+            success: false,
+            errorReason: "unexpected_settle_error",
+            transaction: TX,
+            network: "stellar:testnet",
+          };
+        }
+        return { success: true, transaction: TX, network: "stellar:testnet", payer: "GBUYER" };
+      }),
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
+    const { offerId, identityId, amount } = await exhaust(app);
+
+    const refused = await pay(app, offerId, amount);
+    expect(refused.status).toBe(402);
+    expect(await getBalance(db, identityId)).toBe(0n);
+
+    mode = "settled";
+    const paid = await pay(app, offerId, amount);
+    expect(paid.status).toBe(200);
+    expect(paid.headers.get("X-AWall-Credits-Remaining")).toBe("9998");
+    expect(await getBalance(db, identityId)).toBe(9998n);
+  });
+
+  it("refuses an offer that belongs to another identity, before verify", async () => {
+    const db = await createTestDb();
+    const calls: string[] = [];
+    const app = createApp(config, policySchema.parse(basePolicy()), {
+      db,
+      facilitator: facilitator((path) => {
+        calls.push(path);
+        if (path.endsWith("/verify")) return { isValid: true, payer: "GBUYER" };
+        return { success: true, transaction: TX, network: "stellar:testnet", payer: "GBUYER" };
+      }),
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
+    const mine = await exhaust(app, "owner");
+
+    const stolen = await app.request("/v1/search", {
+      headers: {
+        "x-api-key": "someone-else",
+        "payment-signature": signature(mine.offerId, mine.amount),
+      },
+    });
+    expect(stolen.status).toBe(402);
+    await expect(stolen.json()).resolves.toMatchObject({ error: "offer_identity_mismatch" });
+    expect(calls).toEqual([]);
+    expect(await getBalance(db, mine.identityId)).toBe(0n);
+
+    const owned = await app.request("/v1/search", {
+      headers: { "x-api-key": "owner", "payment-signature": signature(mine.offerId, mine.amount) },
+    });
+    expect(owned.status).toBe(200);
+    expect(await getBalance(db, mine.identityId)).toBe(9998n);
+  });
+
   it("serves from the credit balance once the free quota is gone", async () => {
     const db = await createTestDb();
     const app = createApp(config, policySchema.parse(basePolicy()), { db });
@@ -243,6 +308,137 @@ describe("pix", () => {
     const status = await app.request(`/awall/offers/${offerId}`);
     expect(status.status).toBe(200);
     await expect(status.json()).resolves.toMatchObject({ status: "paid", creditedCredits: 10000 });
+  });
+});
+
+describe("pix after the deadline", () => {
+  it("credits a charge paid in time whose webhook never arrived", async () => {
+    const db = await createTestDb();
+    const pix = new AbacatePayClient({
+      apiKey: "key",
+      baseUrl: "http://pix.test",
+      fetch: async () => json({ success: true, data: { id: "pix_late", status: "PAID", expiresAt: null } }),
+    });
+    const app = createApp(config, policySchema.parse(basePolicy()), { db, pix });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+    const first = await app.request("/v1/search", { headers: { "x-api-key": "pix-late" } });
+    const identityId = first.headers.get("X-AWall-Identity") ?? "";
+
+    const offer = await createOffer(db, {
+      identityId,
+      packCredits: 10000,
+      priceUsdcAtomic: "5000000",
+      priceXlmAtomic: "50000000",
+      priceBrlCents: 290,
+      multiplier: 1,
+      network: "stellar:testnet",
+      asset: ASSET,
+      xlmAsset: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      payTo: config.payTo,
+      rails: ["pix"],
+      pixChargeId: "pix_late",
+      pixBrCode: "000201",
+      expiresAt: new Date(Date.now() - 60_000),
+    });
+
+    const status = await app.request(`/awall/offers/${offer.id}`);
+    expect(status.status).toBe(200);
+    await expect(status.json()).resolves.toMatchObject({ status: "paid", creditedCredits: 10000 });
+    expect(await getBalance(db, identityId)).toBe(10000n);
+
+    const again = await app.request(`/awall/offers/${offer.id}`);
+    expect(again.status).toBe(200);
+    expect(await getBalance(db, identityId)).toBe(10000n);
+  });
+
+  it("stops asking the provider once the grace window is over", async () => {
+    const db = await createTestDb();
+    let calls = 0;
+    const pix = new AbacatePayClient({
+      apiKey: "key",
+      baseUrl: "http://pix.test",
+      fetch: async () => {
+        calls += 1;
+        return json({ success: true, data: { id: "pix_old", status: "PAID", expiresAt: null } });
+      },
+    });
+    const app = createApp(config, policySchema.parse(basePolicy()), { db, pix });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+    const first = await app.request("/v1/search", { headers: { "x-api-key": "pix-old" } });
+    const identityId = first.headers.get("X-AWall-Identity") ?? "";
+
+    const offer = await createOffer(db, {
+      identityId,
+      packCredits: 10000,
+      priceUsdcAtomic: "5000000",
+      priceXlmAtomic: "50000000",
+      priceBrlCents: 290,
+      multiplier: 1,
+      network: "stellar:testnet",
+      asset: ASSET,
+      xlmAsset: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      payTo: config.payTo,
+      rails: ["pix"],
+      pixChargeId: "pix_old",
+      expiresAt: new Date(Date.now() - PIX_LATE_CONFIRM_MS - 60_000),
+    });
+
+    const status = await app.request(`/awall/offers/${offer.id}`);
+    expect(status.status).toBe(410);
+    expect(calls).toBe(0);
+    expect(await getBalance(db, identityId)).toBe(0n);
+  });
+});
+
+describe("revenue", () => {
+  it("keeps USDC and XLM totals apart on the same rail", async () => {
+    const db = await createTestDb();
+    const XLM = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+    const app = createApp(config, policySchema.parse(basePolicy()), { db });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+    const first = await app.request("/v1/search", { headers: { "x-api-key": "two-assets" } });
+    const identityId = first.headers.get("X-AWall-Identity") ?? "";
+
+    const newPaidOffer = async (asset: string, amount: string, key: string) => {
+      const offer = await createOffer(db, {
+        identityId,
+        packCredits: 10,
+        priceUsdcAtomic: "5000000",
+        priceXlmAtomic: "50000000",
+        priceBrlCents: 290,
+        multiplier: 1,
+        network: "stellar:testnet",
+        asset: ASSET,
+        xlmAsset: XLM,
+        payTo: config.payTo,
+        rails: ["exact"],
+      });
+      await grantCredits(db, {
+        identityId,
+        offerId: offer.id,
+        credits: 10,
+        payment: {
+          rail: "exact",
+          amount,
+          asset,
+          network: "stellar:testnet",
+          idempotencyKey: key,
+        },
+      });
+    };
+    await newPaidOffer(ASSET, "5000000", "usdc-1");
+    await newPaidOffer(XLM, "50000000", "xlm-1");
+
+    const summary = await app.request("/awall/stats/summary?window=1h", {
+      headers: { authorization: "Bearer admin-secret" },
+    });
+    expect(summary.status).toBe(200);
+    const body = (await summary.json()) as {
+      revenue: { rail: string; code: string; amount: string }[];
+    };
+    const byCode = Object.fromEntries(body.revenue.map((row) => [row.code, row.amount]));
+    expect(byCode).toMatchObject({ USDC: "5000000", XLM: "50000000" });
+    expect(body.revenue.every((row) => row.rail === "exact")).toBe(true);
   });
 });
 

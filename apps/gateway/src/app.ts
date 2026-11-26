@@ -138,7 +138,7 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
   mountControl(app, { db, config, holder, bus, facilitator, pix });
 
   app.get(`${prefix}/offers/:id`, async (c) => {
-    const result = await offerStatus(db, pix, c.req.param("id"));
+    const result = await offerStatus(db, pix, c.req.param("id"), now());
     return c.json(result.body, result.status as 200);
   });
 
@@ -234,7 +234,12 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
 
     let settled: SettleSuccess | undefined;
     if (!input.decide && c.req.header("payment-signature")) {
-      const result = await settlePayment(db, facilitator, c.req.header("payment-signature") ?? "");
+      const result = await settlePayment(
+        db,
+        facilitator,
+        c.req.header("payment-signature") ?? "",
+        identity.id,
+      );
       if (!result.ok) {
         rememberAbuse(
           identity.id,
