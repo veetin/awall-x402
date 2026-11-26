@@ -35,6 +35,7 @@ Hack Brasil 2026 — trilha *Pagamentos e finanças*.
 | [specs/scheme_pix.md](specs/scheme_pix.md) | Especificação do scheme `pix` para x402 |
 | [docs/07-producao.md](docs/07-producao.md) | Produção: AWall atrás de nginx/Traefik, ForwardAuth, estado e falhas |
 | [docs/08-dashboard.md](docs/08-dashboard.md) | Console em Vite + React: telas, contrato de API, autenticação e fases |
+| [deploy/README.md](deploy/README.md) | Stack de deploy: rodada local, host público com HTTPS, checklist |
 | [AGENTS.md](AGENTS.md) | Regras para agentes de código: invariantes, fatos de rede, convenções |
 
 ## Rodando local
@@ -67,25 +68,66 @@ O console do operador lê o plano de controle. Defina `AWALL_ADMIN_TOKEN` antes
 de subir o gateway e use o mesmo valor na tela. O checkout público de uma offer
 é `http://localhost:4179/pay/<offerId>`.
 
-Para uma borda com HTTPS na mesma máquina:
+## Stack de deploy
 
 ```
-docker compose -f deploy/docker-compose.yml up --build
+cd deploy
+AWALL_ADMIN_TOKEN=local-token docker compose up -d --build
 ```
 
-O Caddy escuta na porta 80. Isso não publica o serviço na internet; é o formato
-de deploy. Exemplos de Traefik e Envoy estão em `deploy/traefik` e `deploy/envoy`.
+Sobe Postgres, a aplicação, o gateway, o console e o Caddy em `http://localhost`.
+Com `AWALL_DOMAIN` apontando para um nome público, o Caddy emite e renova o
+certificado sozinho e o mesmo comando serve HTTPS. O passo a passo e o checklist
+estão em [deploy/README.md](deploy/README.md); exemplos de Traefik e Envoy estão
+em `deploy/traefik` e `deploy/envoy`.
 
-## Status
+Este repositório **não tem demo pública** ainda: publicar depende de domínio e
+conta de infraestrutura. Quando existir, a URL entra aqui.
 
-O gateway liquida `PAYMENT-SIGNATURE` no facilitator, grava saldo e offers no
-ledger, cobra Pix pela AbacatePay, aplica escore de abuso no preço, mede rotas
-com `usage.outputTokens` e expõe o plano de controle para o console. A cota
-gratuita continua em memória, a menos que `REDIS_URL` aponte para um Redis.
+## O que já rodou de verdade
 
-O que este repositório não faz sozinho: obter USDC de testnet (o faucet da
-Circle pede reCAPTCHA; veja `apps/agent-m2m/README.md`) e gravar o vídeo de
-três minutos descrito em [docs/06-demo-e-pitch.md](docs/06-demo-e-pitch.md).
+Todo número abaixo vem de execução neste repositório. Nada aqui é estimativa.
+
+**Uma liquidação confirmada na testnet Stellar**, pelo trilho XLM, sem humano no
+circuito depois do setup:
+
+- transação `1193d51bc83e0831e775b3f7fd13049f21f1868364008e905540be56375a048d`
+  ([stellar.expert](https://stellar.expert/explorer/testnet/tx/1193d51bc83e0831e775b3f7fd13049f21f1868364008e905540be56375a048d))
+- Horizon: `successful: true`, ledger `5928781`
+- 7.888 XLM na conta de recebimento, taxa paga pelo patrocinador do facilitator
+- o gateway creditou o pacote de 10000 créditos e o agente seguiu trabalhando na
+  mesma execução
+
+Rodar: `pnpm --filter @awall/agent-m2m setup:testnet` e depois
+`AGENT_LIVE=1 ./scripts/demo.sh`. Detalhes em
+[apps/agent-m2m/README.md](apps/agent-m2m/README.md).
+
+**Duas réplicas atrás de um balanceador aplicam uma cota só**
+(`./scripts/redis-replicas.sh`): 400 requisições em round robin passam 133 com
+`REDIS_URL` nas duas réplicas, para uma cota de 130 créditos, e 278 sem — a fase
+de controle existe para que a primeira medição não passe por acaso.
+
+**Modo decisão provado nas duas bordas**
+(`./scripts/traefik-proof.sh`, `./scripts/envoy-proof.sh`): Traefik v3.2 e Envoy
+v1.32 em Docker, com os arquivos de `deploy/`. Em cada um: requisição liberada
+chega na aplicação com os headers de decisão, o `402` chega íntegro ao cliente
+com `PAYMENT-REQUIRED` e os três itens de `accepts`, requisição com
+`PAYMENT-SIGNATURE` desvia do auth e é respondida pelo caminho de liquidação, e
+uma rota medida estimada em 50 créditos cobra os 17 tokens que a aplicação
+reporta — o segundo relatório da mesma reserva responde `404`.
+
+**Suíte**: 259 testes passando, 3 pulados (os 3 pulados exigem Redis ou rede);
+`pnpm typecheck` limpo; `./scripts/demo.sh` com exit 0.
+
+## O que falta
+
+- **Demo pública com HTTPS**: depende de domínio e conta de infraestrutura. O
+  stack está pronto e verificado localmente ([deploy/README.md](deploy/README.md)).
+- **Vídeo de três minutos**: roteiro em
+  [docs/06-demo-e-pitch.md](docs/06-demo-e-pitch.md).
+- **USDC de testnet**: o faucet da Circle pede reCAPTCHA, então nenhum saldo de
+  USDC foi obtido aqui. Não bloqueia nada: o trilho XLM liquida de verdade, e o
+  402 oferece os dois ativos.
 
 ## Licença
 
