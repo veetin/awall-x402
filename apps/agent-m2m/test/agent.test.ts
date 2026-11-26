@@ -8,6 +8,7 @@ import {
   decodeHeader,
   encodeHeader,
   fakeExactStellarScheme,
+  XLM,
 } from "./fixtures.js";
 
 const TARGET = "http://localhost:8402/v1/search?q=camera";
@@ -126,7 +127,10 @@ describe("runAgent", () => {
     expect(signed).toHaveLength(1);
     expect(signed[0]?.scheme).toBe("exact");
     expect(signed[0]?.network).toBe("stellar:testnet");
-    expect(signed[0]?.amount).toBe("6800000");
+    // XLM, the default of STELLAR_PAY_ASSET, because friendbot funds XLM and
+    // there is no USDC faucet on testnet.
+    expect(signed[0]?.amount).toBe("68000000");
+    expect(signed[0]?.asset).toBe(XLM);
 
     expect(summary.payments).toHaveLength(1);
     expect(summary.payments[0]?.accepted.scheme).toBe("exact");
@@ -153,8 +157,8 @@ describe("runAgent", () => {
       accepted: {
         scheme: "exact",
         network: "stellar:testnet",
-        amount: "6800000",
-        asset: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
+        amount: "68000000",
+        asset: XLM,
         maxTimeoutSeconds: 60,
       },
       payload: { transaction: FAKE_XDR },

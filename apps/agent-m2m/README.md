@@ -51,9 +51,15 @@ payer (the agent)
 
 O script sai com código 1 se alguma conta ficar sem trustline.
 
-### 2. Pegar USDC de testnet
+### 2. Saldo para pagar
 
-A trustline não traz saldo. O caminho atual é o faucet público da Circle:
+O agente paga em **XLM** por padrão (`STELLAR_PAY_ASSET=xlm`), e o friendbot
+financia XLM no mesmo passo do setup. Não é preciso faucet nenhum para a
+primeira liquidação: o 402 do AWall oferece o mesmo pacote nos dois ativos, e o
+XLM é o caminho que roda sem intervenção humana.
+
+Pagar em **USDC** (`STELLAR_PAY_ASSET=usdc`) continua possível e exige saldo,
+que hoje só sai do faucet público da Circle:
 
 1. abra <https://faucet.circle.com>;
 2. escolha o token **USDC** e a rede **Stellar Testnet**;
@@ -64,10 +70,32 @@ A trustline não traz saldo. O caminho atual é o faucet público da Circle:
 A trustline precisa existir **antes** do pedido, senão o pagamento do faucet não
 tem onde cair. Rode `setup:testnet` de novo para confirmar o saldo.
 
-Este ambiente não executou o friendbot nem o faucet. O passo pede reCAPTCHA no
-navegador e uma conta com trustline. Nenhum hash de testnet foi obtido aqui, e
-nenhum faucet deve ser registrado como tendo funcionado sem essa transferência.
-O caminho documentado continua sendo o da Circle.
+### Primeira liquidação real, pelo trilho XLM
+
+Executada neste repositório, sem humano no circuito depois do setup:
+
+```
+[147]  402  cost 1 credits  credits left 0  identity idt_f_65cf33c71fc9837c
+     rail exact stellar:testnet 7.8880000 XLM (78880000)  to GB3ZLW…3U26LB
+     signed exact on stellar:testnet: 7.8880000 XLM, auth entries valid for ~12 ledgers
+     settled tx 1193d51b…375a048d
+[147]  200  (paid)  cost 1 credits  credits left 10000  7219ms
+done     171 requests  1 payment(s)  statuses {"200":170,"402":1}
+```
+
+- transação: `1193d51bc83e0831e775b3f7fd13049f21f1868364008e905540be56375a048d`
+- <https://stellar.expert/explorer/testnet/tx/1193d51bc83e0831e775b3f7fd13049f21f1868364008e905540be56375a048d>
+- Horizon confirma `successful: true` no ledger `5928781`, e a conta de
+  recebimento saiu de 9999.9999900 para 10007.8879900 XLM;
+- a taxa foi paga pelo patrocinador do facilitator (`areFeesSponsored: true`),
+  não pelo agente: o `source_account` da transação não é a carteira do agente;
+- o gateway creditou o pacote de 10000 créditos e o agente seguiu trabalhando
+  na mesma execução, debitando crédito a partir da requisição seguinte.
+
+> Pagar em XLM só funciona porque o cliente x402 recebe `allowedAssets` ligado.
+> O spend control derruba qualquer ativo que não seja um ativo padrão **antes**
+> do seletor rodar, e XLM não é ativo padrão: sem isso o agente assinava USDC,
+> justamente o ativo que o friendbot não financia.
 
 ### 3. Preparar a conta que recebe
 
@@ -99,6 +127,7 @@ O `.env` em `apps/agent-m2m/` é lido pelos scripts do pacote
 | `AGENT_REQUESTS` | `40` | quantas requisições tentar |
 | `AGENT_INTERVAL_MS` | `120` | pausa entre requisições |
 | `AGENT_MAX_PAYMENT_USD` | `$2` | teto por pagamento, no spend control do cliente |
+| `STELLAR_PAY_ASSET` | `xlm` | ativo assinado quando o 402 oferece USDC e XLM |
 
 ## Rodando o agente
 
