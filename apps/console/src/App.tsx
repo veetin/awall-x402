@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import QRCode from "qrcode";
 import {
   admin,
   gatewayUrl,
@@ -603,6 +604,95 @@ function formatStellarAmount(atomic: string | undefined): string {
   }
 }
 
+/**
+ * Copy text to the clipboard and say so for a moment.
+ *
+ * `navigator.clipboard` needs a secure context, which a checkout served over
+ * plain HTTP on a phone does not have, so the fallback selects a hidden
+ * textarea and runs `execCommand`. A failure says so instead of pretending.
+ */
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [state, setState] = useState<"idle" | "done" | "failed">("idle");
+
+  const copy = useCallback(async () => {
+    const done = await copyText(text);
+    setState(done ? "done" : "failed");
+    window.setTimeout(() => setState("idle"), 2000);
+  }, [text]);
+
+  return (
+    <button type="button" className="copy" onClick={() => void copy()}>
+      {state === "done" ? "Copiado" : state === "failed" ? "Copie à mão" : label}
+    </button>
+  );
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Falls through to the textarea below.
+  }
+  try {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(area);
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * QR Code of the Pix BR Code, rendered in the page.
+ *
+ * The BR Code is the payload the bank app reads, so the QR is generated from
+ * that exact string and from nothing else: no provider image, no URL that
+ * could drift from the code printed below it. Error correction level M is what
+ * the Pix specification asks for.
+ */
+function PixQr({ brCode }: { brCode: string }) {
+  const [src, setSrc] = useState("");
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let stopped = false;
+    QRCode.toDataURL(brCode, { errorCorrectionLevel: "M", margin: 1, width: 320 })
+      .then((url) => {
+        if (!stopped) setSrc(url);
+      })
+      .catch(() => {
+        if (!stopped) setFailed(true);
+      });
+    return () => {
+      stopped = true;
+    };
+  }, [brCode]);
+
+  if (failed) return <p className="muted">Não consegui desenhar o QR. Use o código abaixo.</p>;
+  if (!src) return <p className="muted">Desenhando o QR…</p>;
+  return <img className="qr" src={src} alt="QR Code do Pix" width={320} height={320} />;
+}
+
+/**
+ * The Stellar terms a wallet needs, as the 402 handed them over.
+ *
+ * Copied verbatim from `GET /awall/offers/:id`, so what the wallet signs is
+ * what the gateway will revalidate against the offer.
+ */
+function walletTerms(offerId: string, stellar: unknown): string {
+  return JSON.stringify({ offerId, stellar }, null, 2);
+}
+
 function Checkout({ offerId }: { offerId: string }) {
   const [body, setBody] = useState<Record<string, unknown> | null>(null);
   const [status, setStatus] = useState(0);
@@ -632,6 +722,7 @@ function Checkout({ offerId }: { offerId: string }) {
   }, [offerId]);
 
   const paid = status === 200;
+  const brCode = typeof body?.["brCode"] === "string" ? body["brCode"] : "";
   const expired = status === 410;
   return (
     <main className="pay">
@@ -650,10 +741,24 @@ function Checkout({ offerId }: { offerId: string }) {
               do agente em um dos dois ativos; o mesmo pacote é creditado.
             </p>
             {stellarRow(body?.["stellar"])}
+            {body?.["stellar"] ? (
+              <CopyButton
+                text={walletTerms(offerId, body["stellar"])}
+                label="Copiar termos para a carteira"
+              />
+            ) : null}
           </section>
           <section className="panel">
             <p className="status-wait">Pix</p>
-            {body?.["brCode"] ? <p className="br mono">{String(body["brCode"])}</p> : <p>O código Pix aparece aqui quando a cobrança é criada.</p>}
+            {brCode ? (
+              <>
+                <PixQr brCode={brCode} />
+                <p className="br mono">{brCode}</p>
+                <CopyButton text={brCode} label="Copiar código Pix" />
+              </>
+            ) : (
+              <p>O código Pix aparece aqui quando a cobrança é criada.</p>
+            )}
             <p className="muted">Valor em centavos: {String(body?.["amountCents"] ?? "—")}</p>
           </section>
         </>
