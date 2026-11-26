@@ -78,9 +78,35 @@ header `PAYMENT-REQUIRED` intacto:
 
 | Borda | Propaga `402` com corpo e headers? | Observação |
 | --- | --- | --- |
-| **Traefik** `forwardAuth` | **Sim.** Resposta não-2xx do serviço de auth é devolvida ao cliente com status, corpo e headers | Atenção ao `maxResponseBodySize`: corpo maior que o limite vira `401`. Nosso `PaymentRequired` tem poucos KB |
+| **Traefik** `forwardAuth` | **Sim.** Resposta não-2xx do serviço de auth é devolvida ao cliente com status, corpo e headers | Verificado em Traefik v3.2 por `./scripts/traefik-proof.sh`. O `forwardAuth` do v3 não tem limite de corpo de resposta: `maxResponseBodySize` não é campo válido e a configuração é recusada inteira se ele aparecer |
 | **Envoy** `ext_authz` | **Sim.** `DeniedHttpResponse` tem `status`, `headers` e `body` | Caminho mais limpo para alto volume; use a variante gRPC |
 | **nginx** `auth_request` | **Não.** Só `2xx`, `401` e `403` são respostas válidas; qualquer outro status da subrequisição é tratado como erro e o cliente recebe `500` | Dá para contornar com `auth_request_set $awall_status $upstream_status` mais `error_page`, mas o corpo e os headers da subrequisição **não** passam, então os termos de pagamento se perdem. Com nginx puro, use o Modo A, ou monte a resposta com njs/OpenResty |
+
+### Provando o Modo B contra um Traefik de verdade
+
+`./scripts/traefik-proof.sh` sobe o gateway e uma aplicação de eco no host,
+roda Traefik v3.2 em Docker com o `deploy/traefik/dynamic.yml` deste
+repositório — só o host, o endereço do gateway e o da aplicação são
+substituídos — e verifica quatro coisas:
+
+1. Requisição liberada chega na aplicação com `X-AWall-Identity`,
+   `X-AWall-Cost-Credits` e `X-AWall-Reservation`. Esses headers vão na
+   **requisição** que a borda encaminha, não na resposta ao cliente: é por isso
+   que a prova usa uma aplicação de eco, que é a única que consegue vê-los.
+2. Gasta a cota gratuita até o `402` e confere que ele chega íntegro: header
+   `PAYMENT-REQUIRED` presente e `accepts` com os três itens, incluindo o
+   scheme `exact`.
+3. Requisição com `PAYMENT-SIGNATURE` não passa pelo ForwardAuth: o gateway
+   responde pelo caminho de liquidação (`invalid_payload` para um payload
+   falso), e não o `402` do ForwardAuth.
+4. Rota medida: `POST /v1/completions` é estimada em 50 créditos antes da
+   resposta, a aplicação reporta 17 tokens em `POST /awall/usage` com a
+   reserva, o gateway cobra 17, e o segundo relatório com a mesma reserva
+   responde `404`.
+
+O script falha se o Traefik recusar a configuração, o que foi exatamente o que
+aconteceu na primeira execução: `maxResponseBodySize` não existe no
+`forwardAuth` do v3 e derrubava toda a configuração dinâmica.
 
 ### Requisições que carregam pagamento não passam pelo ForwardAuth
 
