@@ -154,7 +154,7 @@ O que hoje está em memória e precisa sair de lá antes de produção:
 
 | Estado | Hoje | Produção |
 | --- | --- | --- |
-| Token bucket da cota gratuita | memória do processo; Redis se `REDIS_URL` estiver definido | Redis com script Lua atômico (`INCRBYFLOAT` + TTL não serve: precisa ser uma operação só) |
+| Token bucket da cota gratuita | memória do processo; Redis se `REDIS_URL` estiver definido | Redis com script Lua atômico, que grava o pool e o TTL na mesma operação (`INCRBYFLOAT` seguido de `EXPIRE` não serve: são duas) |
 | Identidades e escore de abuso | Postgres | cache local de poucos segundos em cima do Postgres |
 | Offers | Postgres | Postgres (schema em `docs/04-modelo-dados.md`) |
 | Saldo de crédito | Postgres, com `SELECT ... FOR UPDATE` | o mesmo |
@@ -166,6 +166,42 @@ mesma rede, não em Postgres.
 Enquanto o bucket é em memória, **o gateway é single-instance**. Duas réplicas com
 bucket em memória significam que cada uma concede a cota inteira: o limite efetivo
 dobra. É aceitável na demo e não em produção.
+
+### Tempo de vida das chaves do bucket
+
+Toda chave do bucket expira, e a expiração é gravada dentro do mesmo `EVAL` que
+lê, recarrega e gasta o pool. Não existe caminho que escreva o pool sem
+lifetime: o script faz `HSET` e `PEXPIRE` na mesma execução, de modo que uma
+réplica que morra entre as duas chamadas não deixa chave imortal para trás. Isso
+importa num gateway público, onde cada identidade anônima que fez uma requisição
+gratuita criaria uma chave permanente — crescimento de memória sem limite,
+dirigido por tráfego anônimo.
+
+O prazo não é um literal escolhido à mão: vem da janela de recarga do escopo.
+A janela é `capacity / refillPerSecond`, os segundos que um pool vazio precisa
+para voltar ao cheio. O lifetime é **duas** janelas, limitado ao intervalo de
+**60 s a 24 h**:
+
+- a primeira janela é o que a identidade ainda pode precisar: dentro dela o pool
+  gravado ainda não voltou ao cheio, então apagá-lo devolveria cota que a
+  identidade já gastou;
+- a segunda é folga para um lease que foi tirado pouco antes de a identidade
+  ficar quieta, para que a réplica ainda consiga confirmar ou devolver o lease
+  contra o mesmo pool;
+- o piso de 60 s protege escopos de janela muito curta de perder estado por
+  causa de uma réplica lenta;
+- o teto de 24 h existe porque `refillPerSecond = 0` nunca recarrega, e sem teto
+  isso voltaria a significar "para sempre".
+
+A expiração é deslizante — cada acesso a renova —, e sozinha isso manteria uma
+identidade morta viva enquanto qualquer coisa tocasse a chave. Por isso o script
+**apaga** a chave em vez de reescrevê-la quando o pool volta ao estado inicial
+(sem lease pendente e com `tokens` em `capacity`): nesse ponto o pool gravado não
+diz nada que um pool novo não diria, e a próxima requisição o reconstrói cheio.
+
+Nada disso muda a resposta do gateway: cota esgotada continua respondendo `402`,
+nunca `429`. Uma chave que expirou é indistinguível de uma identidade nova, que é
+exatamente o comportamento desejado.
 
 ## Identidade atrás de proxy
 
@@ -198,7 +234,8 @@ após liquidação confirmada, com chave de idempotência.
 
 ## Checklist antes de colocar em produção
 
-- [ ] Bucket em Redis; mais de uma réplica só depois disso.
+- [ ] Bucket em Redis; mais de uma réplica só depois disso. Confira que `PTTL`
+      de uma chave `awall:bucket:*` ativa devolve um prazo, nunca `-1`.
 - [ ] Postgres com as tabelas de `docs/04-modelo-dados.md` e backup.
 - [ ] `AWALL_TRUST_PROXY` coerente com a topologia; borda sobrescrevendo `X-Forwarded-For`.
 - [ ] `STELLAR_PAY_TO` apontando para conta com trustline de USDC criada.
