@@ -7,24 +7,77 @@ import type { BucketLimits } from "./bucket.js";
  * local lease and is not refillable by anyone else, so two replicas cannot
  * each grant the full quota. Refill never pushes `tokens + outstanding` over
  * capacity.
+ *
+ * `expiresAt` is the moment the pool stops existing. Every write sets it, so
+ * no stored pool is ever immortal. See {@link poolTtlSeconds}.
  */
 export type SharedPool = {
   tokens: number;
   outstanding: number;
   updatedAt: number;
+  expiresAt: number;
 };
 
-/** A pool that starts full. */
-export function fullPool(capacity: number, now: number): SharedPool {
-  return { tokens: capacity, outstanding: 0, updatedAt: now };
+/**
+ * How many refill windows an untouched pool survives.
+ *
+ * One window is the time a pool needs to refill from empty to capacity. After
+ * one window of silence the stored pool is already back at capacity, so it
+ * holds nothing a fresh pool would not hold. The second window is headroom for
+ * a lease that was taken out just before the identity went quiet: the replica
+ * still gets to commit or release it against the same pool.
+ */
+export const POOL_TTL_WINDOWS = 2;
+
+/** Floor of the key lifetime, so a fast window still tolerates a stalled replica. */
+export const POOL_TTL_MIN_SECONDS = 60;
+
+/** Ceiling of the key lifetime, so a slow or zero refill rate cannot mean forever. */
+export const POOL_TTL_MAX_SECONDS = 86_400;
+
+/**
+ * Lifetime of the stored pool, derived from the refill window of its scope.
+ *
+ * `capacity / refillPerSecond` is the window: the seconds an empty pool needs
+ * to reach capacity again. The lifetime is {@link POOL_TTL_WINDOWS} of those,
+ * clamped into [{@link POOL_TTL_MIN_SECONDS}, {@link POOL_TTL_MAX_SECONDS}].
+ * A rate of zero never refills, so it takes the ceiling.
+ *
+ * @param limits - Capacity and refill rate of the scope.
+ * @returns Key lifetime in seconds. Always positive.
+ */
+export function poolTtlSeconds(limits: BucketLimits): number {
+  const window =
+    limits.refillPerSecond > 0 ? limits.capacity / limits.refillPerSecond : POOL_TTL_MAX_SECONDS;
+  const windows = Math.ceil(window * POOL_TTL_WINDOWS);
+  return Math.min(POOL_TTL_MAX_SECONDS, Math.max(POOL_TTL_MIN_SECONDS, windows));
 }
 
 /**
- * One atomic step: commit spends, give unused lease back, refill, lease more.
+ * True when the stored pool says nothing a fresh pool would not say.
+ *
+ * A pool that is back at capacity with no lease outstanding carries no
+ * history. Dropping it costs nothing, and dropping it is what keeps a sliding
+ * expiry from holding a dead identity in memory for as long as anything keeps
+ * touching its key.
+ */
+export function poolIsFresh(pool: SharedPool, limits: BucketLimits): boolean {
+  return pool.outstanding <= 0 && pool.tokens >= limits.capacity;
+}
+
+/** A pool that starts full, with a lifetime already set. */
+export function fullPool(capacity: number, now: number, ttlSeconds: number): SharedPool {
+  return { tokens: capacity, outstanding: 0, updatedAt: now, expiresAt: now + ttlSeconds * 1000 };
+}
+
+/**
+ * One atomic step: commit spends, give unused lease back, refill, lease more,
+ * and set the pool's expiry.
  *
  * The whole function mutates `pool` with no await, which is what makes it safe
  * to run as a Redis Lua script: another replica cannot observe a half-applied
- * update.
+ * update. The expiry moves with the same mutation, so a pool cannot be written
+ * without a lifetime.
  *
  * @param pool - Shared pool. Mutated in place.
  * @param limits - Capacity and refill rate of this scope.
@@ -58,6 +111,7 @@ export function cyclePool(
   const granted = clamp(lease, pool.tokens);
   pool.tokens -= granted;
   pool.outstanding += granted;
+  pool.expiresAt = now + poolTtlSeconds(limits) * 1000;
   return granted;
 }
 
@@ -73,14 +127,20 @@ export function releasePool(
   const room = limits.capacity - pool.outstanding - pool.tokens;
   if (room > 0) pool.tokens += Math.min(room, returning);
   pool.updatedAt = now;
+  pool.expiresAt = now + poolTtlSeconds(limits) * 1000;
 }
 
 /**
  * Lua source of {@link cyclePool}, loaded with `EVAL`.
  *
  * KEYS[1] is the pool hash. ARGV is commit, release, lease, now (ms),
- * capacity, refill-per-second. The return value is the leased amount.
- * The script is the only writer, so the read-modify-write cannot interleave.
+ * capacity, refill-per-second, key lifetime (ms). The return value is the
+ * leased amount. The script is the only writer, so the read-modify-write
+ * cannot interleave.
+ *
+ * The write is an `HSET` plus a `PEXPIRE` on the same key in the same script,
+ * so no execution can leave the key without a lifetime. A pool that is back to
+ * the fresh state is deleted instead of rewritten: see {@link poolIsFresh}.
  */
 export const CYCLE_POOL_LUA = `
 local key = KEYS[1]
@@ -90,6 +150,7 @@ local lease = tonumber(ARGV[3])
 local now = tonumber(ARGV[4])
 local capacity = tonumber(ARGV[5])
 local refill = tonumber(ARGV[6])
+local ttl = tonumber(ARGV[7])
 
 local tokens = tonumber(redis.call('HGET', key, 'tokens'))
 local outstanding = tonumber(redis.call('HGET', key, 'outstanding'))
@@ -124,7 +185,12 @@ if lease < 0 then lease = 0 end
 tokens = tokens - lease
 outstanding = outstanding + lease
 
-redis.call('HSET', key, 'tokens', tokens, 'outstanding', outstanding, 'updatedAt', updated)
+if outstanding <= 0 and tokens >= capacity then
+  redis.call('DEL', key)
+else
+  redis.call('HSET', key, 'tokens', tokens, 'outstanding', outstanding, 'updatedAt', updated)
+  redis.call('PEXPIRE', key, ttl)
+end
 return lease
 `.trim();
 
@@ -145,6 +211,10 @@ export type BucketBackend = {
 /**
  * In-process stand-in for Redis. `cycle` mutates synchronously, before the
  * returned promise settles, so two callers cannot both observe the old pool.
+ *
+ * It expires pools exactly as the Lua script does: a pool past its
+ * `expiresAt` is gone, and a pool back in the fresh state is dropped instead
+ * of kept alive by the next touch.
  */
 export class InProcessBucketBackend implements BucketBackend {
   private readonly pools = new Map<string, SharedPool>();
@@ -158,21 +228,41 @@ export class InProcessBucketBackend implements BucketBackend {
     now: number,
   ): number {
     const pool = this.pool(key, limits, now);
-    return cyclePool(pool, limits, commit, release, lease, now);
+    const granted = cyclePool(pool, limits, commit, release, lease, now);
+    this.store(key, pool, limits);
+    return granted;
   }
 
   release(key: string, limits: BucketLimits, amount: number, now: number): void {
     const pool = this.pool(key, limits, now);
     releasePool(pool, limits, amount, now);
+    this.store(key, pool, limits);
+  }
+
+  /**
+   * The stored pool of a key, or `undefined` when no live pool exists.
+   *
+   * This is the in-process equivalent of `HGETALL` plus `PTTL`: it is how a
+   * caller sees whether a key is still there and until when.
+   */
+  inspect(key: string, now = Date.now()): SharedPool | undefined {
+    const pool = this.pools.get(key);
+    if (!pool) return undefined;
+    return pool.expiresAt > now ? pool : undefined;
   }
 
   private pool(key: string, limits: BucketLimits, now: number): SharedPool {
-    let pool = this.pools.get(key);
-    if (!pool) {
-      pool = fullPool(limits.capacity, now);
-      this.pools.set(key, pool);
+    const live = this.inspect(key, now);
+    if (live) return live;
+    return fullPool(limits.capacity, now, poolTtlSeconds(limits));
+  }
+
+  private store(key: string, pool: SharedPool, limits: BucketLimits): void {
+    if (poolIsFresh(pool, limits)) {
+      this.pools.delete(key);
+      return;
     }
-    return pool;
+    this.pools.set(key, pool);
   }
 }
 
