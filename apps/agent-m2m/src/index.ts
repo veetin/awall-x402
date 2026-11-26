@@ -1,5 +1,5 @@
 import { readAgentConfig, readSecret } from "./config.js";
-import { createPaymentClient, createStellarScheme } from "./payment.js";
+import { createPaymentClient, createStellarScheme, preferredStellarAsset } from "./payment.js";
 import { runAgent, type AgentOptions } from "./agent.js";
 
 /** Command line overrides on top of the environment. */
@@ -72,6 +72,7 @@ async function main(): Promise<number> {
     network: config.network,
     scheme,
     maxPaymentUsd: config.maxPaymentUsd,
+    preferred: preferredStellarAsset(),
   });
 
   const options: AgentOptions = {

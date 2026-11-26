@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   authEntryExpirationLedger,
+  createPaymentClient,
   expirationLedgerWindow,
   parseNetwork,
   readTransactionXdr,
   selectExactStellar,
 } from "../src/payment.js";
 import { formatAtomic, formatBrlCents, explorerTxUrl } from "../src/format.js";
-import { awallAccepts } from "./fixtures.js";
+import {
+  USDC,
+  XLM,
+  awallAccepts,
+  awallPaymentRequired,
+  fakeExactStellarScheme,
+} from "./fixtures.js";
 
 describe("selectExactStellar", () => {
   it("prefers XLM when both Stellar assets are offered", () => {
@@ -114,5 +121,38 @@ describe("amount formatting", () => {
     expect(explorerTxUrl("stellar:pubnet", "abc")).toBe(
       "https://stellar.expert/explorer/public/tx/abc",
     );
+  });
+});
+
+describe("spend controls", () => {
+  /**
+   * Sign one 402 and report which asset the scheme was asked for.
+   *
+   * @param preferred - Asset the agent intends to pay in.
+   * @returns The contract id of the asset that reached the scheme.
+   */
+  async function signedAsset(preferred: "usdc" | "xlm"): Promise<string | undefined> {
+    const { scheme, signed } = fakeExactStellarScheme();
+    const payments = createPaymentClient({
+      network: "stellar:testnet",
+      scheme,
+      // The fake XDR is not a transaction, so leave the envelope alone.
+      clampFeeStroops: false,
+      preferred,
+    });
+    await payments.createPaymentPayload(
+      awallPaymentRequired("http://localhost:8402/v1/search?q=camera"),
+    );
+    return signed[0]?.asset;
+  }
+
+  it("keeps the XLM rail, which is not a default asset", async () => {
+    // Without XLM opted in, the client drops that rail before the selector
+    // runs and signs USDC instead: the asset friendbot cannot fund.
+    expect(await signedAsset("xlm")).toBe(XLM);
+  });
+
+  it("still signs USDC when that is what the agent prefers", async () => {
+    expect(await signedAsset("usdc")).toBe(USDC);
   });
 });

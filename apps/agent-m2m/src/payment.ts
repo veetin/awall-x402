@@ -227,6 +227,15 @@ export type PaymentClientOptions = {
    * the envelope alone. See {@link clampSorobanFee}.
    */
   clampFeeStroops?: string | false;
+  /**
+   * Which Stellar asset the agent intends to pay in.
+   *
+   * It decides the spend controls, not only the preference: the client drops
+   * every non-default asset before the selector runs, and XLM is not a default
+   * asset, so paying in XLM needs it opted in explicitly. Defaults to
+   * {@link preferredStellarAsset}.
+   */
+  preferred?: PreferredStellarAsset;
 };
 
 /**
@@ -236,9 +245,17 @@ export type PaymentClientOptions = {
  * @returns A payment client.
  */
 export function createPaymentClient(options: PaymentClientOptions): PaymentClient {
+  const preferred = options.preferred ?? preferredStellarAsset();
   const client = new x402Client(selectExactStellar)
     .register(options.network, options.scheme)
-    .setSpendControls({ maxAmountPerPayment: options.maxPaymentUsd ?? "$2" });
+    .setSpendControls({
+      maxAmountPerPayment: options.maxPaymentUsd ?? "$2",
+      // The USD cap covers the default assets, USDC among them. XLM is not a
+      // default asset, so the client would drop that rail before the selector
+      // ever saw it and sign USDC instead - which is the asset friendbot
+      // cannot fund. Opting XLM in is what makes `STELLAR_PAY_ASSET=xlm` work.
+      ...(preferred === "xlm" ? { allowedAssets: true as const } : {}),
+    });
   const httpClient = new x402HTTPClient(client);
   const clampFeeStroops = options.clampFeeStroops ?? "1";
 
