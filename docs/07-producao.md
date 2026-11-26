@@ -218,6 +218,29 @@ inventar.
 Identidade por chave de API não depende disso, e é a identidade que importa para
 quem paga.
 
+## Rede: testnet por default, pubnet sempre explícita
+
+`STELLAR_NETWORK` tem default `stellar:testnet`, e nessa rede todo valor de
+Stellar tem fallback de testnet: a demo roda sem nenhuma configuração. Em
+`stellar:pubnet` não existe default seguro, e o gateway **recusa subir** em vez
+de cair para um valor de testnet.
+
+Três variáveis não têm default em pubnet:
+
+| Variável | Por que não tem default |
+| --- | --- |
+| `STELLAR_ASSET` | o contrato USDC de testnet não existe em pubnet. Com o default, o gateway cotaria um ativo inexistente e o cliente real pagaria no vazio |
+| `STELLAR_PAY_TO` | conta que recebe, com trustline de USDC já criada. Vazio significa anunciar um recebedor vazio |
+| `X402_FACILITATOR_URL` | `https://www.x402.org/facilitator` é serviço de testnet, não caminho de produção |
+
+Faltando qualquer uma delas, `readConfig` lança `GatewayConfigError`, o processo
+escreve a lista das variáveis faltantes em `stderr` e sai com código 1. A
+mensagem nomeia cada variável; não há modo degradado.
+
+`STELLAR_XLM_ASSET` é o caso oposto e continua com default: os dois SACs nativos
+(`CDLZFC3S…` em testnet, `CAS3J7GY…` em pubnet) são contratos reais e conhecidos,
+então o default acompanha a rede em vez de exigir configuração.
+
 ## Se o AWall cair
 
 Decisão de operação, não de código, e precisa ser explícita:
@@ -239,8 +262,11 @@ após liquidação confirmada, com chave de idempotência.
 - [ ] Postgres com as tabelas de `docs/04-modelo-dados.md` e backup.
 - [ ] `AWALL_TRUST_PROXY` coerente com a topologia; borda sobrescrevendo `X-Forwarded-For`.
 - [ ] `STELLAR_PAY_TO` apontando para conta com trustline de USDC criada.
+- [ ] `STELLAR_ASSET` com o contrato USDC de pubnet; o de testnet não existe lá.
 - [ ] `stellar:pubnet` e facilitator de produção escolhidos de forma explícita — o
       facilitator público de testnet não é caminho de produção.
+- [ ] Subida testada com a configuração real: sem as três variáveis acima o
+      gateway sai com código 1 nomeando o que falta.
 - [ ] Política de falha (fail-open ou fail-closed) decidida e configurada.
 - [ ] Timeout do ForwardAuth menor que o timeout da borda, e requisições com
       `PAYMENT-SIGNATURE` roteadas fora dele.
