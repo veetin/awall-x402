@@ -349,6 +349,85 @@ describe("pix", () => {
   });
 });
 
+describe("checkout payment", () => {
+  it("settles an offer posted from the checkout and credits its identity", async () => {
+    const db = await createTestDb();
+    const calls: string[] = [];
+    const app = createApp(config, policySchema.parse(basePolicy()), {
+      db,
+      facilitator: facilitator((path) => {
+        calls.push(path);
+        if (path.endsWith("/verify")) return { isValid: true, payer: "GWALLET" };
+        return { success: true, transaction: "checkout-tx", network: "stellar:testnet", payer: "GWALLET" };
+      }),
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
+    const exhausted = await exhaust(app, "checkout-payer");
+
+    // No API key and no protected request: the offer id is the capability,
+    // exactly as it is for the Pix poll.
+    const paid = await app.request(`/awall/offers/${exhausted.offerId}/pay`, {
+      method: "POST",
+      headers: { "payment-signature": signature(exhausted.offerId, exhausted.amount) },
+    });
+
+    expect(paid.status).toBe(200);
+    expect(paid.headers.get("PAYMENT-RESPONSE")).toBeTruthy();
+    await expect(paid.json()).resolves.toMatchObject({
+      status: "paid",
+      creditedCredits: 10000,
+      transaction: "checkout-tx",
+    });
+    expect(calls).toEqual(["/verify", "/settle"]);
+    // The credits land on the offer's identity, not on whoever posted.
+    expect(await getBalance(db, exhausted.identityId)).toBe(10000n);
+
+    const status = await app.request(`/awall/offers/${exhausted.offerId}`);
+    expect(status.status).toBe(200);
+  });
+
+  it("refuses a payload that names another offer", async () => {
+    const db = await createTestDb();
+    const calls: string[] = [];
+    const app = createApp(config, policySchema.parse(basePolicy()), {
+      db,
+      facilitator: facilitator((path) => {
+        calls.push(path);
+        if (path.endsWith("/verify")) return { isValid: true, payer: "GWALLET" };
+        return { success: true, transaction: "other-tx", network: "stellar:testnet", payer: "GWALLET" };
+      }),
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
+    const first = await exhaust(app, "checkout-one");
+    const second = await exhaust(app, "checkout-two");
+
+    const crossed = await app.request(`/awall/offers/${second.offerId}/pay`, {
+      method: "POST",
+      headers: { "payment-signature": signature(first.offerId, first.amount) },
+    });
+
+    expect(crossed.status).toBe(402);
+    await expect(crossed.json()).resolves.toMatchObject({ error: "offer_mismatch" });
+    // Refused before the facilitator, while the payer still holds the money.
+    expect(calls).toEqual([]);
+    expect(await getBalance(db, second.identityId)).toBe(0n);
+  });
+
+  it("answers 404 for an unknown offer and 402 without a payload", async () => {
+    const db = await createTestDb();
+    const app = createApp(config, policySchema.parse(basePolicy()), { db });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+    const exhausted = await exhaust(app, "checkout-empty");
+
+    const unknown = await app.request("/awall/offers/ofr_nope/pay", { method: "POST" });
+    expect(unknown.status).toBe(404);
+
+    const empty = await app.request(`/awall/offers/${exhausted.offerId}/pay`, { method: "POST" });
+    expect(empty.status).toBe(402);
+    await expect(empty.json()).resolves.toMatchObject({ error: "missing_payment" });
+  });
+});
+
 describe("pix after the deadline", () => {
   it("credits a charge paid in time whose webhook never arrived", async () => {
     const db = await createTestDb();
