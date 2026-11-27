@@ -52,6 +52,24 @@ export class GatewayConfigError extends Error {
 }
 
 /**
+ * Read a base URL that other URLs are appended to.
+ *
+ * The caller concatenates a path onto the result, so a trailing slash would
+ * produce a double separator. An empty or absent value falls back, because
+ * Compose turns an unexported variable into an empty string rather than
+ * leaving it unset.
+ *
+ * @param value - Raw environment value.
+ * @param fallback - Value to use when nothing usable is configured.
+ * @returns The base URL with no trailing slash.
+ */
+function baseUrl(value: string | undefined, fallback: string): string {
+  const trimmed = value?.trim();
+  const base = trimmed !== undefined && trimmed.length > 0 ? trimmed : fallback;
+  return base.replace(/\/+$/, "");
+}
+
+/**
  * Reader for variables whose fallback value only makes sense on testnet.
  *
  * On testnet it keeps the plain `??` fallback, so the demo still runs with no
@@ -212,7 +230,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     payTo,
     facilitatorUrl,
     facilitatorTimeoutMs: Number(env["X402_FACILITATOR_TIMEOUT_MS"] ?? 10_000),
-    checkoutBaseUrl: env["AWALL_CHECKOUT_BASE_URL"] ?? "http://localhost:4179",
+    checkoutBaseUrl: baseUrl(env["AWALL_CHECKOUT_BASE_URL"], "http://localhost:4179"),
     publicBaseUrl: env["AWALL_PUBLIC_BASE_URL"] ?? `http://localhost:${port}`,
     trustProxy: env["AWALL_TRUST_PROXY"] === "1",
     databaseUrl: env["DATABASE_URL"] ?? "",

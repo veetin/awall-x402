@@ -122,3 +122,21 @@ describe("readConfig on pubnet", () => {
     expect(config.xlmAsset).toBe(STELLAR_PUBNET_XLM);
   });
 });
+
+describe("readConfig and the checkout base URL", () => {
+  it("defaults to the console's own port", () => {
+    expect(readConfig({}).checkoutBaseUrl).toBe("http://localhost:4179");
+  });
+
+  it("treats an empty value as absent, the way Compose passes it", () => {
+    expect(readConfig({ AWALL_CHECKOUT_BASE_URL: "" }).checkoutBaseUrl).toBe(
+      "http://localhost:4179",
+    );
+  });
+
+  it("drops a trailing slash, so appending a path cannot double the separator", () => {
+    expect(
+      readConfig({ AWALL_CHECKOUT_BASE_URL: "https://awall.example.com/" }).checkoutBaseUrl,
+    ).toBe("https://awall.example.com");
+  });
+});
