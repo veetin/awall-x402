@@ -16,13 +16,13 @@ import {
 } from "./api";
 
 const TABS = [
-  ["live", "Ao vivo"],
-  ["requests", "Requisições"],
-  ["revenue", "Receita"],
-  ["identities", "Identidades"],
-  ["payments", "Pagamentos"],
-  ["policy", "Política"],
-  ["health", "Saúde"],
+  ["live", "Ao vivo", "live"],
+  ["requests", "Requisições", "requests"],
+  ["revenue", "Receita", "revenue"],
+  ["identities", "Identidades", "identities"],
+  ["payments", "Pagamentos", "payments"],
+  ["policy", "Política", "policy"],
+  ["health", "Saúde", "health"],
 ] as const;
 
 type Tab = (typeof TABS)[number][0] | "identity" | "pay" | "login";
@@ -44,6 +44,61 @@ function readLocation(): Location {
 function go(path: string): void {
   window.history.pushState(null, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+function TabIcon({ name }: { name: string }) {
+  switch (name) {
+    case "live":
+      return (
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="2" />
+          <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" />
+        </svg>
+      );
+    case "requests":
+      return (
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+      );
+    case "revenue":
+      return (
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="2" />
+          <path d="M12 8v8m-4-5h8" />
+        </svg>
+      );
+    case "identities":
+      return (
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
+    case "payments":
+      return (
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="5" width="20" height="14" rx="2" />
+          <line x1="2" y1="10" x2="22" y2="10" />
+        </svg>
+      );
+    case "policy":
+      return (
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+      );
+    case "health":
+      return (
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+        </svg>
+      );
+    default:
+      return null;
+  }
 }
 
 export function App() {
@@ -101,15 +156,42 @@ export function App() {
   return (
     <div className="app">
       <aside className="side">
-        <h1 className="mark">A<span>Wall</span></h1>
-        <p>O 402 no lugar do 429. Quem opera a API vê o consumo e a receita aqui.</p>
+        <div className="brand-header">
+          <div className="brand-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2" />
+              <polyline points="2 17 12 22 22 17" />
+              <polyline points="2 12 12 17 22 12" />
+            </svg>
+          </div>
+          <h1 className="mark">
+            A<span>Wall</span>
+            <span className="brand-badge">x402</span>
+          </h1>
+        </div>
+        <p className="side-desc">Gateway autônomo: 402 Payment Required substituindo o 429.</p>
         <nav>
-          {TABS.map(([id, label]) => (
-            <button key={id} aria-current={location.tab === id ? "page" : undefined} onClick={() => go(`/${id}`)}>
-              {label}
+          {TABS.map(([id, label, icon]) => (
+            <button
+              key={id}
+              aria-current={location.tab === id ? "page" : undefined}
+              onClick={() => go(`/${id}`)}
+            >
+              <TabIcon name={icon} />
+              <span>{label}</span>
             </button>
           ))}
         </nav>
+        <div className="side-footer">
+          <div className="rail-status">
+            <span><span className="rail-dot" />STELLAR TESTNET</span>
+            <span>USDC / XLM</span>
+          </div>
+          <div className="rail-status">
+            <span><span className="rail-dot" />PIX RAIL</span>
+            <span>ABACATE</span>
+          </div>
+        </div>
       </aside>
       <main className="main">
         <SessionBar user={user} onSignedOut={() => setUser(null)} />
@@ -176,6 +258,10 @@ function Login({ onSignedIn }: { onSignedIn: (user: ConsoleUser) => void }) {
         />
         {error && <p className="banner bad">{error}</p>}
         <button className="primary" type="submit" disabled={busy || !username || !password}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
           {busy ? "Entrando…" : "Entrar"}
         </button>
         <p className="hint">
@@ -233,6 +319,16 @@ function useAdmin<T>(path: string) {
   }, [path]);
 
   return { data, error, loading };
+}
+
+function StatusPill({ value }: { value: string }) {
+  const normalized = value.toLowerCase();
+  return (
+    <span className={`pill ${normalized}`}>
+      <span className="pill-dot" />
+      {value}
+    </span>
+  );
 }
 
 function Live() {
@@ -294,12 +390,24 @@ function Live() {
 
   return (
     <section>
-      <h1>Ao vivo</h1>
-      <p className="lede">Cada requisição e cada pagamento, assim que o gateway decide.</p>
+      <h1>
+        Ao vivo
+        {!error && <span className="pill good"><span className="pill-dot" />STREAM SSE CONECTADO</span>}
+      </h1>
+      <p className="lede">Cada requisição e cada pagamento, assim que o gateway decide no pipeline x402.</p>
       {error && <p className="banner bad">{error}</p>}
       <div className="filters">
-        <input value={identity} onChange={(event) => setIdentity(event.target.value)} placeholder="Filtrar identidade" aria-label="Filtrar identidade" />
-        <select value={decision} onChange={(event) => setDecision(event.target.value)} aria-label="Filtrar decisão">
+        <input
+          value={identity}
+          onChange={(event) => setIdentity(event.target.value)}
+          placeholder="Filtrar por identidade…"
+          aria-label="Filtrar identidade"
+        />
+        <select
+          value={decision}
+          onChange={(event) => setDecision(event.target.value)}
+          aria-label="Filtrar decisão"
+        >
           <option value="">Todas as decisões</option>
           <option value="allow_free">allow_free</option>
           <option value="allow_credit">allow_credit</option>
@@ -307,25 +415,41 @@ function Live() {
           <option value="refunded">refunded</option>
         </select>
       </div>
-      {visible.length === 0 ? <p className="empty">Nada ainda. Faça uma chamada no gateway e ela aparece aqui.</p> : (
-        <table>
-          <thead>
-            <tr><th>Quando</th><th>Identidade</th><th>Rota</th><th>Decisão</th><th>Créditos</th><th>Status</th><th>ms</th></tr>
-          </thead>
-          <tbody>
-            {visible.map((row, index) => (
-              <tr key={`${row.at}-${index}`}>
-                <td className="mono">{row.at.slice(11, 19)}</td>
-                <td className="mono">{row.identityId}</td>
-                <td>{row.type === "payment" ? `pagamento ${row.rail ?? ""}` : row.route}</td>
-                <td>{row.decision ?? row.rail}</td>
-                <td>{row.credits ?? row.creditedCredits ?? ""}</td>
-                <td>{row.originStatus ?? ""}</td>
-                <td>{row.latencyMs ?? ""}</td>
+      {visible.length === 0 ? (
+        <div className="panel empty">
+          Nenhuma requisição recebida ainda. Faça uma chamada no gateway e ela aparecerá aqui instantaneamente.
+        </div>
+      ) : (
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Quando</th>
+                <th>Identidade</th>
+                <th>Rota</th>
+                <th>Decisão</th>
+                <th>Créditos</th>
+                <th>Status</th>
+                <th>Latência</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {visible.map((row, index) => (
+                <tr key={`${row.at}-${index}`}>
+                  <td className="mono">{row.at.slice(11, 19)}</td>
+                  <td className="mono" style={{ color: "var(--cyan)" }}>{row.identityId}</td>
+                  <td>{row.type === "payment" ? <span className="pill allow_credit">pagamento {row.rail ?? ""}</span> : row.route}</td>
+                  <td>
+                    {row.decision ? <StatusPill value={row.decision} /> : <StatusPill value={row.rail ?? "payment"} />}
+                  </td>
+                  <td className="mono">{row.credits ?? row.creditedCredits ?? "—"}</td>
+                  <td className="mono">{row.originStatus ?? "—"}</td>
+                  <td className="mono">{row.latencyMs !== undefined ? `${row.latencyMs}ms` : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
@@ -337,28 +461,37 @@ function Requests() {
   return (
     <section>
       <h1>Requisições</h1>
-      <p className="lede">Agregado por identidade, rota e hora. O detalhe cru fica só no ao vivo.</p>
-      {loading && <p className="empty">Carregando…</p>}
+      <p className="lede">Agregado histórico por identidade, rota e hora. Métricas de consumo do gateway.</p>
+      {loading && <p className="empty">Carregando telemetria…</p>}
       {error && <p className="banner bad">{error}</p>}
       {!loading && !error && rollups.length === 0 && <p className="empty">Nenhum agregado nesta janela.</p>}
       {rollups.length > 0 && (
-        <table>
-          <thead>
-            <tr><th>Hora</th><th>Identidade</th><th>Rota</th><th>Pedidos</th><th>Créditos</th><th>Pagos</th></tr>
-          </thead>
-          <tbody>
-            {rollups.map((row, index) => (
-              <tr key={index}>
-                <td className="mono">{String(row["hour"] ?? "")}</td>
-                <td className="mono">{String(row["identityId"] ?? "")}</td>
-                <td>{String(row["route"] ?? "")}</td>
-                <td>{String(row["requests"] ?? "")}</td>
-                <td>{String(row["credits"] ?? "")}</td>
-                <td>{String(row["paidCredits"] ?? "")}</td>
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Identidade</th>
+                <th>Rota</th>
+                <th>Pedidos</th>
+                <th>Créditos</th>
+                <th>Pagos</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rollups.map((row, index) => (
+                <tr key={index}>
+                  <td className="mono">{String(row["hour"] ?? "")}</td>
+                  <td className="mono" style={{ color: "var(--cyan)" }}>{String(row["identityId"] ?? "")}</td>
+                  <td>{String(row["route"] ?? "")}</td>
+                  <td className="mono">{String(row["requests"] ?? "")}</td>
+                  <td className="mono">{String(row["credits"] ?? "")}</td>
+                  <td className="mono" style={{ color: "var(--good)" }}>{String(row["paidCredits"] ?? "")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
@@ -368,34 +501,48 @@ function Revenue() {
   const { data, error, loading } = useAdmin<Summary>("/awall/stats/summary?window=24h");
   return (
     <section>
-      <h1>Receita</h1>
-      <p className="lede">Últimas 24 horas. Requisição recuperada é a que teria sido 429 e foi atendida depois do pagamento.</p>
-      {loading && <p className="empty">Carregando…</p>}
+      <h1>Receita & Telemetria</h1>
+      <p className="lede">Últimas 24 horas. Requisição recuperada é a que teria sido 429 e foi atendida após liquidação x402.</p>
+      {loading && <p className="empty">Calculando métricas financeiras…</p>}
       {error && <p className="banner bad">{error}</p>}
       {data && (
         <div className="cards">
-          <article className="card"><span>Recuperadas</span><strong>{data.recoveredRequests}</strong></article>
-          <article className="card"><span>Pedidos</span><strong>{data.requests}</strong></article>
-          <article className="card"><span>Créditos</span><strong>{data.credits}</strong></article>
           <article className="card">
-            <span>USDC liquidado</span>
-            <strong>{atomic(codeAmount(data.revenue, "USDC"))}</strong>
+            <span>Requisições Recuperadas</span>
+            <strong style={{ color: "var(--cyan)" }}>{data.recoveredRequests}</strong>
           </article>
           <article className="card">
-            <span>XLM liquidado</span>
+            <span>Volume Total</span>
+            <strong>{data.requests}</strong>
+          </article>
+          <article className="card">
+            <span>Créditos Consumidos</span>
+            <strong>{data.credits}</strong>
+          </article>
+          <article className="card">
+            <span>USDC Liquidado (Stellar)</span>
+            <strong style={{ color: "var(--good)" }}>{atomic(codeAmount(data.revenue, "USDC"))}</strong>
+          </article>
+          <article className="card">
+            <span>XLM Liquidado (Stellar)</span>
             <strong>{atomic(codeAmount(data.revenue, "XLM"))}</strong>
           </article>
           <article className="card">
-            <span>Pix (centavos)</span>
-            <strong>{codeAmount(data.revenue, "BRL")}</strong>
+            <span>Pix Liquidado (BRL)</span>
+            <strong style={{ color: "var(--good)" }}>R$ {(Number(codeAmount(data.revenue, "BRL")) / 100).toFixed(2)}</strong>
           </article>
           <article className="card">
-            <span>Infra estimada (USD)</span>
-            <strong>{data.infra.estimatedUsd.toFixed(4)}</strong>
+            <span>Infraestrutura Estimada</span>
+            <strong>${data.infra.estimatedUsd.toFixed(4)}</strong>
           </article>
         </div>
       )}
-      {data && <p className="muted">Multiplicador médio de abuso: {data.abuse.avgMultiplier.toFixed(2)}</p>}
+      {data && (
+        <div className="panel" style={{ marginTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>Multiplicador médio de abuso de tráfego:</span>
+          <span className="pill wait"><span className="pill-dot" />{data.abuse.avgMultiplier.toFixed(2)}×</span>
+        </div>
+      )}
     </section>
   );
 }
@@ -409,12 +556,6 @@ type Summary = {
   abuse: { avgMultiplier: number };
 };
 
-/**
- * Total of one asset, as an integer string.
- *
- * Every asset keeps its own card: USDC and XLM both ride the `exact` rail and
- * adding their atomic units together would print a number that means nothing.
- */
 function codeAmount(rows: Summary["revenue"], code: string): string {
   const total = rows
     .filter((row) => row.code === code)
@@ -433,7 +574,6 @@ function atomic(value: string): string {
   }
 }
 
-/** Rows per page in the console. The gateway refuses more than 200. */
 const PAGE_LIMIT = 50;
 
 function Identities() {
@@ -446,41 +586,62 @@ function Identities() {
   return (
     <section>
       <h1>Identidades</h1>
-      <p className="lede">Saldo, escore e o preço que essa identidade paga agora.</p>
-      {loading && <p className="empty">Carregando…</p>}
+      <p className="lede">Saldos de créditos, índices de abuso e multiplicador de preço por cliente.</p>
+      {loading && <p className="empty">Consultando identidades…</p>}
       {error && <p className="banner bad">{error}</p>}
       {!loading && !error && rows.length === 0 && offset === 0 && <p className="empty">Ninguém passou pelo gateway ainda.</p>}
       {rows.length > 0 && (
-        <table>
-          <thead>
-            <tr><th>Id</th><th>Tipo</th><th>Saldo</th><th>Abuso</th><th>Preço</th><th>Visto</th></tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
-                <td><button className="row-link" onClick={() => go(`/identities/${row.id}`)}>{row.id}</button></td>
-                <td>{row.kind}</td>
-                <td>{row.creditBalance}</td>
-                <td>{row.abuseScore.toFixed(2)}</td>
-                <td>{row.multiplier.toFixed(2)}×</td>
-                <td className="mono">{row.lastSeenAt.slice(0, 16).replace("T", " ")}</td>
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Id</th>
+                <th>Tipo</th>
+                <th>Saldo de Créditos</th>
+                <th>Escore de Abuso</th>
+                <th>Multiplicador</th>
+                <th>Visto em</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <button className="row-link" onClick={() => go(`/identities/${row.id}`)}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                      </svg>
+                      {row.id}
+                    </button>
+                  </td>
+                  <td><span className="pill neutral">{row.kind}</span></td>
+                  <td className="mono" style={{ fontWeight: 600, color: "var(--good)" }}>{row.creditBalance}</td>
+                  <td className="mono">{row.abuseScore.toFixed(2)}</td>
+                  <td>
+                    <span className={`pill ${row.multiplier > 1.2 ? "wait" : "good"}`}>
+                      {row.multiplier.toFixed(2)}×
+                    </span>
+                  </td>
+                  <td className="mono">{row.lastSeenAt.slice(0, 16).replace("T", " ")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       {page && (offset > 0 || page.hasMore) && (
-        <p className="muted">
-          <button className="row-link" type="button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_LIMIT))}>
+        <div className="panel" style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <button className="primary" type="button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_LIMIT))}>
             Anteriores
           </button>
-          {" "}
-          Linhas {offset + 1}–{offset + rows.length}
-          {" "}
-          <button className="row-link" type="button" disabled={page.nextOffset === null} onClick={() => setOffset(page.nextOffset ?? offset)}>
+          <span className="mono" style={{ color: "var(--text-secondary)", fontSize: 13 }}>
+            Linhas {offset + 1}–{offset + rows.length}
+          </span>
+          <button className="primary" type="button" disabled={page.nextOffset === null} onClick={() => setOffset(page.nextOffset ?? offset)}>
             Próximas
           </button>
-        </p>
+        </div>
       )}
     </section>
   );
@@ -506,38 +667,68 @@ function IdentityDetail({ id }: { id: string }) {
   const ledgerPage = data?.ledgerPage;
   return (
     <section>
-      <button className="row-link" onClick={() => go("/identities")}>Voltar</button>
-      <h1>{id}</h1>
-      {loading && <p className="empty">Carregando…</p>}
+      <button className="row-link" style={{ marginBottom: 16 }} onClick={() => go("/identities")}>
+        ← Voltar para lista de identidades
+      </button>
+      <h1>Identidade: <span className="mono" style={{ color: "var(--cyan)" }}>{id}</span></h1>
+      {loading && <p className="empty">Carregando detalhes do cliente…</p>}
       {error && <p className="banner bad">{error}</p>}
-      {data && <p className="lede">Saldo {data.identity.creditBalance} créditos. Multiplicador {data.identity.multiplier.toFixed(2)}×.</p>}
-      {data && data.ledger.length === 0 && offset === 0 && <p className="empty">Extrato vazio.</p>}
+      {data && (
+        <div className="cards" style={{ margin: "20px 0" }}>
+          <div className="card">
+            <span>Saldo Atual</span>
+            <strong style={{ color: "var(--good)" }}>{data.identity.creditBalance} créditos</strong>
+          </div>
+          <div className="card">
+            <span>Multiplicador de Abuso</span>
+            <strong>{data.identity.multiplier.toFixed(2)}×</strong>
+          </div>
+          <div className="card">
+            <span>Tipo de Credencial</span>
+            <strong>{data.identity.kind}</strong>
+          </div>
+        </div>
+      )}
+      {data && data.ledger.length === 0 && offset === 0 && <p className="empty">Extrato do ledger vazio.</p>}
       {data && data.ledger.length > 0 && (
-        <table>
-          <thead><tr><th>Quando</th><th>Motivo</th><th>Delta</th></tr></thead>
-          <tbody>
-            {data.ledger.map((row, index) => (
-              <tr key={index}>
-                <td className="mono">{String(row["createdAt"] ?? "")}</td>
-                <td>{String(row["reason"] ?? "")}</td>
-                <td>{String(row["deltaCredits"] ?? "")}</td>
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Quando</th>
+                <th>Motivo do Lançamento</th>
+                <th>Delta de Créditos</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.ledger.map((row, index) => {
+                const delta = Number(row["deltaCredits"] ?? 0);
+                return (
+                  <tr key={index}>
+                    <td className="mono">{String(row["createdAt"] ?? "")}</td>
+                    <td>{String(row["reason"] ?? "")}</td>
+                    <td className="mono" style={{ color: delta > 0 ? "var(--good)" : delta < 0 ? "var(--bad)" : "inherit", fontWeight: 600 }}>
+                      {delta > 0 ? `+${delta}` : delta}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
       {ledgerPage && (offset > 0 || ledgerPage.hasMore) && (
-        <p className="muted">
-          <button className="row-link" type="button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_LIMIT))}>
+        <div className="panel" style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <button className="primary" type="button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_LIMIT))}>
             Anteriores
           </button>
-          {" "}
-          Lançamentos {offset + 1}–{offset + (data?.ledger.length ?? 0)}
-          {" "}
-          <button className="row-link" type="button" disabled={ledgerPage.nextOffset === null} onClick={() => setOffset(ledgerPage.nextOffset ?? offset)}>
+          <span className="mono" style={{ color: "var(--text-secondary)", fontSize: 13 }}>
+            Lançamentos {offset + 1}–{offset + (data?.ledger.length ?? 0)}
+          </span>
+          <button className="primary" type="button" disabled={ledgerPage.nextOffset === null} onClick={() => setOffset(ledgerPage.nextOffset ?? offset)}>
             Próximos
           </button>
-        </p>
+        </div>
       )}
     </section>
   );
@@ -549,27 +740,38 @@ function Payments() {
   const offers = data?.offers ?? [];
   return (
     <section>
-      <h1>Pagamentos</h1>
-      <p className="lede">Todo crédito concedido precisa de um pagamento rastreável.</p>
-      {loading && <p className="empty">Carregando…</p>}
+      <h1>Pagamentos & Offers</h1>
+      <p className="lede">Todo crédito concedido no gateway possui liquidação e idempotência auditável.</p>
+      {loading && <p className="empty">Consultando liquidações…</p>}
       {error && <p className="banner bad">{error}</p>}
-      {!loading && !error && payments.length === 0 && offers.length === 0 && <p className="empty">Nenhuma offer ainda.</p>}
+      {!loading && !error && payments.length === 0 && offers.length === 0 && <p className="empty">Nenhuma offer emitida ainda.</p>}
       {offers.length > 0 && (
-        <table>
-          <thead><tr><th>Offer</th><th>Status</th><th>USDC</th><th>XLM</th><th>Centavos</th><th>Pacote</th></tr></thead>
-          <tbody>
-            {offers.map((row) => (
-              <tr key={String(row["id"])}>
-                <td className="mono">{String(row["id"])}</td>
-                <td>{String(row["status"])}</td>
-                <td className="mono">{formatStellarAmount(String(row["priceUsdcAtomic"] ?? ""))}</td>
-                <td className="mono">{formatStellarAmount(String(row["priceXlmAtomic"] ?? ""))}</td>
-                <td>{String(row["priceBrlCents"])}</td>
-                <td>{String(row["packCredits"])}</td>
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Offer ID</th>
+                <th>Status</th>
+                <th>USDC (Stellar)</th>
+                <th>XLM (Stellar)</th>
+                <th>Pix (BRL)</th>
+                <th>Pacote de Créditos</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {offers.map((row) => (
+                <tr key={String(row["id"])}>
+                  <td className="mono" style={{ color: "var(--cyan)" }}>{String(row["id"])}</td>
+                  <td><StatusPill value={String(row["status"])} /></td>
+                  <td className="mono">{formatStellarAmount(String(row["priceUsdcAtomic"] ?? ""))}</td>
+                  <td className="mono">{formatStellarAmount(String(row["priceXlmAtomic"] ?? ""))}</td>
+                  <td className="mono">R$ {(Number(row["priceBrlCents"] ?? 0) / 100).toFixed(2)}</td>
+                  <td className="mono" style={{ color: "var(--good)", fontWeight: 600 }}>{String(row["packCredits"])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
@@ -593,45 +795,82 @@ function Policy() {
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setMessage(`Recusado (${response.status}). O schema da política não aceitou o JSON.`);
+      setMessage(`Recusado (${response.status}). O schema da política não aceitou a configuração JSON.`);
       return;
     }
     setConfirming(false);
-    setMessage(`Aplicada. Versão ${String((body as { version?: { id?: string } }).version?.id ?? "")}. Vale na próxima requisição.`);
+    setMessage(`Política aplicada com sucesso. Versão ${String((body as { version?: { id?: string } }).version?.id ?? "")}.`);
   }
 
   return (
     <section>
-      <h1>Política</h1>
-      <p className="lede">Origem atual: {data?.source ?? "…"}. A alteração passa a valer sem reiniciar.</p>
-      {loading && <p className="empty">Carregando…</p>}
+      <h1>Política do Gateway</h1>
+      <p className="lede">Origem atual: <span className="mono" style={{ color: "var(--cyan)" }}>{data?.source ?? "…"}</span>. As alterações são dinâmicas sem reinicialização.</p>
+      {loading && <p className="empty">Carregando política…</p>}
       {error && <p className="banner bad">{error}</p>}
       {data && (
         <>
-          <textarea className="json" value={draft} onChange={(event) => setDraft(event.target.value)} aria-label="Política em JSON" spellCheck={false} />
-          <p>
+          <textarea
+            className="json"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            aria-label="Política em JSON"
+            spellCheck={false}
+          />
+          <div style={{ marginTop: 12 }}>
             <button className="primary" type="button" onClick={() => setConfirming(true)} disabled={draft === original}>
-              Revisar alteração
+              Revisar Alteração
             </button>
-          </p>
+          </div>
           {confirming && (
-            <div className="panel">
-              <p>Confira o que muda antes de aplicar.</p>
+            <div className="panel" style={{ marginTop: 16 }}>
+              <h3 style={{ margin: "0 0 10px", fontSize: 16 }}>Comparativo de Alterações (Diff)</h3>
+              <p style={{ color: "var(--text-secondary)", fontSize: 13, margin: "0 0 12px" }}>Confira a política anterior à esquerda e a nova proposta à direita antes de cometer.</p>
               <div className="diff">
-                <pre>{original}</pre>
-                <pre>{draft}</pre>
+                <div>
+                  <span className="mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>POLÍTICA ATUAL</span>
+                  <pre>{original}</pre>
+                </div>
+                <div>
+                  <span className="mono" style={{ fontSize: 11, color: "var(--cyan)" }}>NOVA VERSÃO</span>
+                  <pre>{draft}</pre>
+                </div>
               </div>
-              <button className="primary" type="button" onClick={() => void apply()}>Aplicar</button>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="primary" type="button" onClick={() => void apply()}>
+                  Confirmar e Aplicar
+                </button>
+                <button className="row-link" type="button" onClick={() => setConfirming(false)}>
+                  Cancelar
+                </button>
+              </div>
             </div>
           )}
-          {message && <p className="banner">{message}</p>}
-          <h2>Histórico</h2>
-          {data.versions.length === 0 ? <p className="empty">Nenhuma versão gravada. O YAML de boot ainda é a política.</p> : (
-            <ul>
-              {data.versions.map((version) => (
-                <li key={version.id}><span className="mono">{version.id}</span> por {version.appliedBy} em {version.createdAt}</li>
-              ))}
-            </ul>
+          {message && <p className="banner" style={{ marginTop: 16 }}>{message}</p>}
+          <h2 style={{ fontSize: 18, marginTop: 32, marginBottom: 12 }}>Histórico de Versões</h2>
+          {data.versions.length === 0 ? (
+            <p className="empty">Nenhuma versão gravada. O arquivo YAML inicial ainda é a fonte ativa.</p>
+          ) : (
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Versão</th>
+                    <th>Aplicado por</th>
+                    <th>Data</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.versions.map((version) => (
+                    <tr key={version.id}>
+                      <td className="mono" style={{ color: "var(--cyan)" }}>{version.id}</td>
+                      <td>{version.appliedBy}</td>
+                      <td className="mono">{version.createdAt}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </>
       )}
@@ -643,18 +882,22 @@ function Health() {
   const { data, error, loading } = useAdmin<Record<string, unknown>>("/awall/health/checks");
   return (
     <section>
-      <h1>Saúde</h1>
-      <p className="lede">Facilitator, Pix e a conta de recebimento, antes do cliente reclamar.</p>
-      {loading && <p className="empty">Carregando…</p>}
+      <h1>Diagnóstico de Saúde</h1>
+      <p className="lede">Facilitator x402, provedores Pix e conectividade de recebimento em tempo real.</p>
+      {loading && <p className="empty">Executando verificações no gateway…</p>}
       {error && <p className="banner bad">{error}</p>}
-      {data && <pre className="panel">{JSON.stringify(data, null, 2)}</pre>}
+      {data && (
+        <div className="panel">
+          <pre className="json" style={{ margin: 0, minHeight: 300 }}>{JSON.stringify(data, null, 2)}</pre>
+        </div>
+      )}
     </section>
   );
 }
 
 function stellarRow(value: unknown) {
   if (!value || typeof value !== "object") {
-    return <p className="muted">Termos Stellar ainda não chegaram.</p>;
+    return <p className="muted">Termos Stellar ainda não sincronizados.</p>;
   }
   const stellar = value as {
     network?: string;
@@ -663,22 +906,26 @@ function stellarRow(value: unknown) {
     xlm?: { amount?: string; asset?: string; code?: string };
   };
   return (
-    <div>
-      <p className="mono muted">{stellar.network} → {stellar.payTo}</p>
-      <table>
-        <thead>
-          <tr><th>Ativo</th><th>Valor</th><th>Contrato</th></tr>
-        </thead>
-        <tbody>
-          {[stellar.usdc, stellar.xlm].filter(Boolean).map((row) => (
-            <tr key={row?.code}>
-              <td>{row?.code}</td>
-              <td className="mono">{formatStellarAmount(row?.amount)}</td>
-              <td className="mono">{row?.asset}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div style={{ marginTop: 12 }}>
+      <p className="mono" style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 10 }}>
+        <span style={{ color: "var(--cyan)" }}>{stellar.network}</span> → {stellar.payTo}
+      </p>
+      <div className="table-container" style={{ margin: 0 }}>
+        <table>
+          <thead>
+            <tr><th>Ativo</th><th>Valor</th><th>Contrato</th></tr>
+          </thead>
+          <tbody>
+            {[stellar.usdc, stellar.xlm].filter(Boolean).map((row) => (
+              <tr key={row?.code}>
+                <td style={{ fontWeight: 600 }}>{row?.code}</td>
+                <td className="mono" style={{ color: "var(--good)" }}>{formatStellarAmount(row?.amount)}</td>
+                <td className="mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>{row?.asset}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -695,13 +942,6 @@ function formatStellarAmount(atomic: string | undefined): string {
   }
 }
 
-/**
- * Copy text to the clipboard and say so for a moment.
- *
- * `navigator.clipboard` needs a secure context, which a checkout served over
- * plain HTTP on a phone does not have, so the fallback selects a hidden
- * textarea and runs `execCommand`. A failure says so instead of pretending.
- */
 function CopyButton({ text, label }: { text: string; label: string }) {
   const [state, setState] = useState<"idle" | "done" | "failed">("idle");
 
@@ -713,7 +953,24 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
   return (
     <button type="button" className="copy" onClick={() => void copy()}>
-      {state === "done" ? "Copiado" : state === "failed" ? "Copie à mão" : label}
+      {state === "done" ? (
+        <>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--good)" }}>
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          Copiado!
+        </>
+      ) : state === "failed" ? (
+        "Copie à mão"
+      ) : (
+        <>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+          {label}
+        </>
+      )}
     </button>
   );
 }
@@ -743,21 +1000,13 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
-/**
- * QR Code of the Pix BR Code, rendered in the page.
- *
- * The BR Code is the payload the bank app reads, so the QR is generated from
- * that exact string and from nothing else: no provider image, no URL that
- * could drift from the code printed below it. Error correction level M is what
- * the Pix specification asks for.
- */
 function PixQr({ brCode }: { brCode: string }) {
   const [src, setSrc] = useState("");
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let stopped = false;
-    QRCode.toDataURL(brCode, { errorCorrectionLevel: "M", margin: 1, width: 320 })
+    QRCode.toDataURL(brCode, { errorCorrectionLevel: "M", margin: 1, width: 280 })
       .then((url) => {
         if (!stopped) setSrc(url);
       })
@@ -769,29 +1018,21 @@ function PixQr({ brCode }: { brCode: string }) {
     };
   }, [brCode]);
 
-  if (failed) return <p className="muted">Não consegui desenhar o QR. Use o código abaixo.</p>;
-  if (!src) return <p className="muted">Desenhando o QR…</p>;
-  return <img className="qr" src={src} alt="QR Code do Pix" width={320} height={320} />;
+  if (failed) return <p className="muted">Não consegui desenhar o QR. Use o código Pix abaixo.</p>;
+  if (!src) return <p className="muted">Gerando QR Code Pix…</p>;
+  return (
+    <div className="qr-container">
+      <div className="qr-frame">
+        <img src={src} alt="QR Code do Pix" width={280} height={280} />
+      </div>
+    </div>
+  );
 }
 
-/**
- * The Stellar terms a wallet needs, as the 402 handed them over.
- *
- * Copied verbatim from `GET /awall/offers/:id`, so what the wallet signs is
- * what the gateway will revalidate against the offer.
- */
 function walletTerms(offerId: string, stellar: unknown): string {
   return JSON.stringify({ offerId, stellar }, null, 2);
 }
 
-/**
- * Hand a wallet's signed payment to the gateway.
- *
- * The wallet signs the terms copied above and gives back a `PAYMENT-SIGNATURE`
- * value; this sends it to `POST /awall/offers/:id/pay`, which verifies it
- * against the stored offer before anything is credited. Nothing here signs:
- * the key stays in the wallet.
- */
 function WalletPayment({ offerId }: { offerId: string }) {
   const [open, setOpen] = useState(false);
   const [payment, setPayment] = useState("");
@@ -816,22 +1057,27 @@ function WalletPayment({ offerId }: { offerId: string }) {
   };
 
   if (state === "done") {
-    return <p className="status-paid">Pagamento aceito. O status acima atualiza em instantes.</p>;
+    return <p className="status-paid" style={{ marginTop: 12 }}>✓ Pagamento aceito pelo gateway. Atualizando status…</p>;
   }
 
   if (!open) {
     return (
       <button type="button" className="copy" onClick={() => setOpen(true)}>
-        Pagar com a carteira
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" />
+          <path d="M4 6v12a2 2 0 0 0 2 2h14v-4" />
+          <path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" />
+        </svg>
+        Pagar com a Carteira
       </button>
     );
   }
 
   return (
     <div className="wallet">
-      <p className="muted">
-        Assine os termos acima na carteira e cole aqui o valor de
-        <span className="mono"> PAYMENT-SIGNATURE</span>.
+      <p className="muted" style={{ fontSize: 13, margin: "0 0 8px" }}>
+        Assine os termos acima na sua carteira Stellar e cole aqui o header
+        <span className="mono" style={{ color: "var(--cyan)" }}> PAYMENT-SIGNATURE</span>:
       </p>
       <textarea
         className="mono"
@@ -847,7 +1093,7 @@ function WalletPayment({ offerId }: { offerId: string }) {
         disabled={state === "sending" || payment.trim().length === 0}
         onClick={() => void send()}
       >
-        {state === "sending" ? "Enviando…" : "Enviar pagamento"}
+        {state === "sending" ? "Enviando assinatura…" : "Enviar Pagamento Assinado"}
       </button>
     </div>
   );
@@ -865,13 +1111,14 @@ function Checkout({ offerId }: { offerId: string }) {
       try {
         const response = await publicGet(`/awall/offers/${offerId}`);
         const json = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-        if (stopped) return;
-        setStatus(response.status);
-        setBody(json);
-        setError("");
-        if (response.status === 202) timer = window.setTimeout(() => void tick(), 2000);
+        if (!stopped) {
+          setStatus(response.status);
+          setBody(json);
+          setError("");
+          if (response.status === 202) timer = window.setTimeout(() => void tick(), 2000);
+        }
       } catch {
-        if (!stopped) setError("Não consegui falar com o gateway.");
+        if (!stopped) setError("Não consegui estabelecer comunicação com o gateway.");
       }
     };
     void tick();
@@ -884,50 +1131,98 @@ function Checkout({ offerId }: { offerId: string }) {
   const paid = status === 200;
   const brCode = typeof body?.["brCode"] === "string" ? body["brCode"] : "";
   const expired = status === 410;
+
   return (
-    <main className="pay">
-      <h1 className="mark">A<span>Wall</span></h1>
-      <p className="lede">Pagamento da offer <span className="mono">{offerId}</span></p>
-      {error && <p className="banner bad">{error}</p>}
-      {!body && !error && <p className="empty">Consultando o gateway…</p>}
-      {paid && <p className="status-paid">Pago. {String(body?.["creditedCredits"] ?? "")} créditos na conta. Pode voltar ao agente.</p>}
-      {expired && <p className="banner bad">Essa cobrança expirou. Faça a chamada de novo para gerar outra.</p>}
-      {status === 202 && (
-        <>
-          <section className="panel">
-            <p className="status-wait">Stellar (USDC ou XLM)</p>
-            <p className="muted">
-              Pacote de {String(body?.["packCredits"] ?? "—")} créditos. Pague com a carteira
-              do agente em um dos dois ativos; o mesmo pacote é creditado.
-            </p>
-            {stellarRow(body?.["stellar"])}
-            {body?.["stellar"] ? (
-              <>
-                <CopyButton
-                  text={walletTerms(offerId, body["stellar"])}
-                  label="Copiar termos para a carteira"
-                />
-                <WalletPayment offerId={offerId} />
-              </>
-            ) : null}
-          </section>
-          <section className="panel">
-            <p className="status-wait">Pix</p>
-            {brCode ? (
-              <>
-                <PixQr brCode={brCode} />
-                <p className="br mono">{brCode}</p>
-                <CopyButton text={brCode} label="Copiar código Pix" />
-              </>
-            ) : (
-              <p>O código Pix aparece aqui quando a cobrança é criada.</p>
-            )}
-            <p className="muted">Valor em centavos: {String(body?.["amountCents"] ?? "—")}</p>
-          </section>
-        </>
-      )}
-      {status === 404 && <p className="banner bad">Offer desconhecida.</p>}
-      <p className="muted">Gateway {gatewayUrl()}</p>
-    </main>
+    <div className="pay-layout">
+      <div className="pay-card">
+        <div className="pay-header">
+          <h1 className="mark">
+            A<span>Wall</span>
+            <span className="brand-badge">TERMINAL DE CHECKOUT</span>
+          </h1>
+          <div className="offer-chip">
+            <span>OFFER</span>
+            <span style={{ color: "var(--cyan)" }}>{offerId}</span>
+          </div>
+        </div>
+
+        {error && <p className="banner bad">{error}</p>}
+        {!body && !error && <p className="empty">Consultando liquidação no gateway…</p>}
+        {paid && (
+          <div className="banner" style={{ background: "rgba(52, 211, 153, 0.1)", borderColor: "var(--good-border)", color: "var(--good)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <div>
+              <strong>Pagamento Confirmado!</strong>
+              <div style={{ fontSize: 13, marginTop: 2 }}>
+                {String(body?.["creditedCredits"] ?? "")} créditos creditados com sucesso. O agente autônomo já pode retomar a requisição.
+              </div>
+            </div>
+          </div>
+        )}
+        {expired && (
+          <div className="banner bad">
+            Essa cobrança expirou. Por favor, reenvie a chamada para obter uma nova oferta x402.
+          </div>
+        )}
+
+        {status === 202 && (
+          <div className="checkout-grid">
+            <section className="checkout-panel">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <span className="status-wait">
+                  <span className="pulse-beacon" />
+                  Stellar Rail (USDC / XLM)
+                </span>
+                <span className="pill allow_credit">AUTÔNOMO</span>
+              </div>
+              <p style={{ color: "var(--text-secondary)", fontSize: 13, margin: "0 0 12px" }}>
+                Pacote de <strong style={{ color: "var(--text-pure)" }}>{String(body?.["packCredits"] ?? "—")} créditos</strong>. Pague diretamente com a carteira em um dos dois ativos.
+              </p>
+              {stellarRow(body?.["stellar"])}
+              {body?.["stellar"] ? (
+                <div style={{ marginTop: 14 }}>
+                  <CopyButton
+                    text={walletTerms(offerId, body["stellar"])}
+                    label="Copiar Termos Stellar para Carteira"
+                  />
+                  <WalletPayment offerId={offerId} />
+                </div>
+              ) : null}
+            </section>
+
+            <section className="checkout-panel">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <span className="status-wait">
+                  <span className="pulse-beacon" />
+                  Pix Rail (Instantâneo BR)
+                </span>
+                <span className="pill wait">HUMANO NO CIRCUITO</span>
+              </div>
+              {brCode ? (
+                <>
+                  <PixQr brCode={brCode} />
+                  <div className="br-box">{brCode}</div>
+                  <CopyButton text={brCode} label="Copiar Código Pix (Copia e Cola)" />
+                </>
+              ) : (
+                <p className="empty" style={{ padding: "16px 0" }}>O código Pix aparecerá aqui assim que gerado pelo provedor.</p>
+              )}
+              <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--text-secondary)" }}>
+                <span>Valor:</span>
+                <strong style={{ color: "var(--text-pure)" }}>R$ {(Number(body?.["amountCents"] ?? 0) / 100).toFixed(2)}</strong>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {status === 404 && <p className="banner bad">Offer desconhecida ou não encontrada.</p>}
+        <div style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: "var(--text-dim)", fontFamily: "var(--mono)" }}>
+          GATEWAY: {gatewayUrl()}
+        </div>
+      </div>
+    </div>
   );
 }
