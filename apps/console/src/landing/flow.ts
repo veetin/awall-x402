@@ -44,7 +44,7 @@ type Dot = { ox: number; oy: number; phase: number; size: number; kind: "client"
 const MODE_LABEL: Partial<Record<FlowMode, string>> = {
   pass: "COTA",
   block: "402",
-  rails: "STELLAR + PIX",
+  rails: "REDES CRIPTO + PIX",
   blind: "ORIGIN CEGA",
 };
 
@@ -195,7 +195,7 @@ export class Flow {
           this.blocked += 1;
           this.flash = 1;
           this.log(
-            `<span class="c">${clock()}</span> <span class="w">GET</span> /v1/cotacoes <span class="r">402 Payment Required</span> <span class="c">accepts=[</span><span class="b">exact/stellar</span><span class="c">,</span><span class="t">pix</span><span class="c">]</span>`,
+            `<span class="c">${clock()}</span> <span class="w">GET</span> /v1/cotacoes <span class="r">402 Payment Required</span> <span class="c">accepts=[</span><span class="b">exact/cripto</span><span class="c">,</span><span class="t">pix</span><span class="c">]</span>`,
           );
         }
       }
@@ -205,7 +205,7 @@ export class Flow {
         this.updateMeter();
         this.log(
           p.kind === "stellar"
-            ? `<span class="c">${clock()}</span> <span class="b">✓ stellar</span> exact 0,50 USDC liquidado <span class="y">+10.000 créditos</span>`
+            ? `<span class="c">${clock()}</span> <span class="b">✓ cripto</span> exact 0,50 USDC liquidado <span class="y">+10.000 créditos</span>`
             : `<span class="c">${clock()}</span> <span class="t">✓ pix</span> R$ 2,90 confirmado <span class="c">pix:bcb</span> <span class="y">+10.000 créditos</span>`,
         );
         this.ring = 1;
@@ -257,7 +257,7 @@ export class Flow {
       const a = this.railPoint("stellar", 0.5);
       const b = this.railPoint("pix", 0.5);
       ctx.fillStyle = rgba(COLOR.blueLight, 0.9);
-      ctx.fillText("exact · stellar:testnet", a.x, a.y - 10);
+      ctx.fillText("exact · redes cripto", a.x, a.y - 10);
       ctx.fillStyle = rgba(COLOR.teal, 0.9);
       ctx.fillText("pix · pix:bcb", b.x, b.y + 18);
     }

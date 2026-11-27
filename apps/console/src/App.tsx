@@ -119,7 +119,7 @@ export function App() {
             ))}
           </nav>
           <div className="rails" aria-label="Trilhos de pagamento">
-            <span className="rail-chip rail-stellar"><i aria-hidden="true" />Stellar testnet</span>
+            <span className="rail-chip rail-stellar"><i aria-hidden="true" />Redes cripto · testnet</span>
             <span className="rail-chip rail-pix"><i aria-hidden="true" />Pix</span>
           </div>
           <SessionBar user={user} onSignedOut={() => setUser(null)} />
@@ -457,11 +457,11 @@ function Revenue() {
             <strong>{data.credits}</strong>
           </article>
           <article className="card">
-            <span>USDC Liquidado (Stellar)</span>
+            <span>USDC liquidado (redes cripto)</span>
             <strong style={{ color: "var(--stellar)" }}>{atomic(codeAmount(data.revenue, "USDC"))}</strong>
           </article>
           <article className="card">
-            <span>XLM Liquidado (Stellar)</span>
+            <span>Moeda nativa liquidada (redes cripto)</span>
             <strong style={{ color: "var(--stellar)" }}>{atomic(codeAmount(data.revenue, "XLM"))}</strong>
           </article>
           <article className="card">
@@ -689,8 +689,8 @@ function Payments() {
               <tr>
                 <th>Offer ID</th>
                 <th>Status</th>
-                <th>USDC (Stellar)</th>
-                <th>XLM (Stellar)</th>
+                <th>USDC (redes cripto)</th>
+                <th>Moeda nativa (redes cripto)</th>
                 <th>Pix (BRL)</th>
                 <th>Pacote de Créditos</th>
               </tr>
@@ -834,7 +834,7 @@ function Health() {
 
 function stellarRow(value: unknown) {
   if (!value || typeof value !== "object") {
-    return <p className="muted">Termos Stellar ainda não sincronizados.</p>;
+    return <p className="muted">Termos cripto ainda não sincronizados.</p>;
   }
   const stellar = value as {
     network?: string;
@@ -1013,7 +1013,7 @@ function WalletPayment({ offerId }: { offerId: string }) {
   return (
     <div className="wallet">
       <p className="muted" style={{ fontSize: 13, margin: "0 0 8px" }}>
-        Assine os termos acima na sua carteira Stellar e cole aqui o header
+        Assine os termos acima na sua carteira cripto e cole aqui o header
         <span className="mono" style={{ color: "var(--accent)" }}> PAYMENT-SIGNATURE</span>:
       </p>
       <textarea
@@ -1111,7 +1111,7 @@ function Checkout({ offerId }: { offerId: string }) {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <span className="status-wait">
                   <span className="pulse-beacon" />
-                  Stellar Rail (USDC / XLM)
+                  Trilho cripto (USDC / moeda nativa)
                 </span>
                 <span className="pill stellar">AUTÔNOMO</span>
               </div>
@@ -1123,7 +1123,7 @@ function Checkout({ offerId }: { offerId: string }) {
                 <div style={{ marginTop: 14 }}>
                   <CopyButton
                     text={walletTerms(offerId, body["stellar"])}
-                    label="Copiar Termos Stellar para Carteira"
+                    label="Copiar termos cripto para carteira"
                   />
                   <WalletPayment offerId={offerId} />
                 </div>

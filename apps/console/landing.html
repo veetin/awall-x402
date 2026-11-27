@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AWall — o 429 virou um preço</title>
-<meta name="description" content="AWall troca o 429 Too Many Requests por 402 Payment Required: acima da cota gratuita, o agente paga em USDC ou XLM na Stellar, ou uma pessoa paga por Pix, e o trabalho continua.">
+<meta name="description" content="AWall troca o 429 Too Many Requests por 402 Payment Required: acima da cota gratuita, o agente paga em USDC ou na moeda nativa de uma rede cripto, ou uma pessoa paga por Pix, e o trabalho continua.">
 <meta name="theme-color" content="#08090d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,9 +26,9 @@
 <section class="hero" data-section="hero">
   <div class="wrap">
     <div>
-      <div class="eyebrow rv">Gateway x402 · Stellar + Pix</div>
+      <div class="eyebrow rv">Gateway x402 · redes cripto + Pix</div>
       <h1 class="rv d1">Sua API atrás de um muro que sabe cobrar.</h1>
-      <p class="sub rv d2">O AWall fica na frente da API. Dentro da cota, a chamada passa. Acima da cota, a resposta é <code>402 Payment Required</code> com um pacote de créditos e dois trilhos no mesmo <code>accepts</code>: <code>exact</code> na Stellar e Pix. A origin não sabe que o pagamento existe.</p>
+      <p class="sub rv d2">O AWall fica na frente da API. Dentro da cota, a chamada passa. Acima da cota, a resposta é <code>402 Payment Required</code> com um pacote de créditos e dois trilhos no mesmo <code>accepts</code>: <code>exact</code> em redes cripto e Pix. A origin não sabe que o pagamento existe.</p>
       <div class="btns rv d3"><a class="btn solid" href="#cta">Começar <span>→</span></a><a class="btn ghost" href="#fluxo">Saiba mais</a></div>
     </div>
     <div class="card rv d2" id="sim">
@@ -37,7 +37,7 @@
         <div class="meter"><span>COTA <b class="q w">0/8</b></span><div class="bar"><i></i></div></div>
       </div>
       <div class="term"></div>
-      <div class="ctrl"><button data-a="req">→ enviar request</button><button data-a="burst">estourar cota</button><button class="st" data-a="stellar">pagar · stellar</button><button class="px" data-a="pix">pagar · pix</button><button data-a="auto">auto ▶</button></div>
+      <div class="ctrl"><button data-a="req">→ enviar request</button><button data-a="burst">estourar cota</button><button class="st" data-a="stellar">pagar · cripto</button><button class="px" data-a="pix">pagar · pix</button><button data-a="auto">auto ▶</button></div>
     </div>
   </div>
 </section>
@@ -46,16 +46,16 @@
 <section class="manifesto" id="manifesto" data-section="manifesto">
   <div class="wrap">
     <div class="section-head">
-      <div class="eyebrow rv" data-converge>gateway x402 · stellar:testnet · pix</div>
+      <div class="eyebrow rv" data-converge>gateway x402 · redes cripto · pix</div>
       <h2 class="rv d1">Troque o <span class="strike">429</span> por um preço.</h2>
-      <p class="lede rv d2">AWall fica na frente da sua API. Dentro da cota gratuita, a requisição passa. Acima dela, em vez de recusar, o gateway responde <code>402 Payment Required</code> com os termos do x402: o agente paga em USDC ou XLM na Stellar, ou uma pessoa paga por Pix, e o trabalho continua.</p>
+      <p class="lede rv d2">AWall fica na frente da sua API. Dentro da cota gratuita, a requisição passa. Acima dela, em vez de recusar, o gateway responde <code>402 Payment Required</code> com os termos do x402: o agente paga em USDC ou na moeda nativa de uma rede cripto, ou uma pessoa paga por Pix, e o trabalho continua.</p>
     </div>
     <ol class="g3" style="list-style:none">
       <li class="tile pot rv" style="--pc:#4ade80"><p class="lbl2"><span class="dot free"></span>Cota gratuita <span style="color:#fff">→ origin</span></p><p class="big">100 créditos/min</p><p class="sub2">por chave de API</p><p class="line2">dentro da cota, a requisição passa</p></li>
-      <li class="tile pot rv d1" style="--pc:var(--blue)"><p class="lbl2"><span class="dot st"></span>402 → Stellar <span style="color:#fff">exact · USDC</span></p><p class="big">0,50 USDC <small style="font-size:14px;color:var(--mut)">ou 5,00 XLM</small></p><p class="sub2">pacote de 10.000 créditos</p><p class="line2">agente autônomo, sem humano</p></li>
+      <li class="tile pot rv d1" style="--pc:var(--blue)"><p class="lbl2"><span class="dot st"></span>402 → redes cripto <span style="color:#fff">exact · USDC</span></p><p class="big">0,50 USDC <small style="font-size:14px;color:var(--mut)">ou o equivalente em moeda nativa</small></p><p class="sub2">pacote de 10.000 créditos</p><p class="line2">agente autônomo, sem humano</p></li>
       <li class="tile pot rv d2" style="--pc:var(--teal)"><p class="lbl2"><span class="dot px"></span>402 → Pix <span style="color:#fff">pix · BRL</span></p><p class="big">R$ 2,90</p><p class="sub2">pacote de 10.000 créditos</p><p class="line2">humano no circuito, QR na tela</p></li>
     </ol>
-    <p class="fine rv" style="margin-top:22px">Política padrão de <code>awall.yaml</code>: cota gratuita de 100 créditos por minuto, pacote de 10.000 créditos a 0,50 USDC, 5,00 XLM ou R$ 2,90. Tudo na testnet.</p>
+    <p class="fine rv" style="margin-top:22px">Política padrão de <code>awall.yaml</code>: cota gratuita de 100 créditos por minuto, pacote de 10.000 créditos a 0,50 USDC, o equivalente em moeda nativa ou R$ 2,90. Tudo na testnet.</p>
   </div>
 </section>
 
@@ -75,14 +75,14 @@
           <li><i style="background:#60A5FA;box-shadow:0 0 10px #60A5FA"></i>requisição</li>
           <li><i class="wall"></i>AWall</li>
           <li><i class="orb"></i>origin (sua API)</li>
-          <li><i style="background:#3B82F6;box-shadow:0 0 10px #3B82F6"></i>Stellar</li>
+          <li><i style="background:#3B82F6;box-shadow:0 0 10px #3B82F6"></i>Redes cripto</li>
           <li><i style="background:#2DD4BF;box-shadow:0 0 10px #2DD4BF"></i>Pix</li>
         </ul>
         <div class="intro-hint">ROLE · 4 PASSOS</div>
       </div>
       <div class="step" data-mode="pass"><div class="n"><b>01</b> — DENTRO DA COTA</div><h2>A requisição passa.</h2><p>Cada chave tem uma cota gratuita de 100 créditos por minuto. Dentro dela, o AWall encaminha direto para a origin: <code>200 OK</code> da sua API.</p></div>
       <div class="step" data-mode="block"><div class="n"><b>02</b> — ACIMA DA COTA</div><h2>Em vez de recusar, um 402.</h2><p>A cota acabou e o agente não recebe uma porta fechada: recebe <code>402 Payment Required</code> com termos legíveis por máquina, paga e repete a mesma requisição.</p></div>
-      <div class="step" data-mode="rails"><div class="n"><b>03</b> — DOIS TRILHOS NO MESMO 402</div><h2>Stellar ou Pix. O mesmo pacote.</h2><p><span class="b">●</span> Um agente com carteira paga sozinho na Stellar, com a taxa patrocinada pelo facilitator. <span class="t">●</span> Uma pessoa paga o mesmo pacote por Pix. O crédito cai na mesma identidade.</p></div>
+      <div class="step" data-mode="rails"><div class="n"><b>03</b> — DOIS TRILHOS NO MESMO 402</div><h2>Redes cripto ou Pix. O mesmo pacote.</h2><p><span class="b">●</span> Um agente com carteira paga sozinho em uma rede cripto, com a taxa patrocinada pelo facilitator. <span class="t">●</span> Uma pessoa paga o mesmo pacote por Pix. O crédito cai na mesma identidade.</p></div>
       <div class="step" data-mode="blind"><div class="n"><b>04</b> — ORIGIN CEGA</div><h2>A origin não sabe que o pagamento existe.</h2><p>Cota, cobrança, liquidação e ledger vivem no gateway. Sua API continua recebendo requisições normais, sem SDK de pagamento e sem mudança de código.</p></div>
     </div>
   </div>
@@ -99,7 +99,7 @@
         <div class="tabs"><button class="on">COTA</button><button>402</button><button>LIQUIDAÇÃO</button></div>
         <div class="tab on">O gateway mede cada chamada em créditos antes de encaminhar.<ul><li><b>Cota gratuita</b> → 100 créditos/min por chave</li><li><b>Custo por rota</b> → <code>X-AWall-Cost-Credits</code></li><li><b>Saldo</b> → <code>X-AWall-Credits-Remaining</code></li></ul></div>
         <div class="tab">Acima da cota, o muro responde no lugar da origin.<ul><li><b>Status</b> → <code>402 Payment Required</code></li><li><b>Termos</b> → header <code>PAYMENT-REQUIRED</code> com o <code>accepts</code></li><li><b>Preço</b> → <code>X-AWall-Price-Multiplier</code> (até 3×)</li></ul></div>
-        <div class="tab">O agente assina e repete a mesma chamada.<ul><li><b>Stellar</b> → assina as auth entries Soroban, envia <code>PAYMENT-SIGNATURE</code></li><li><b>Resposta</b> → <code>200 OK</code> + <code>PAYMENT-RESPONSE</code></li><li><b>Ledger</b> → +10.000 créditos, saldo 9.999 após a chamada</li></ul></div>
+        <div class="tab">O agente assina e repete a mesma chamada.<ul><li><b>Rede cripto</b> → assina a autorização do pagamento e envia <code>PAYMENT-SIGNATURE</code></li><li><b>Resposta</b> → <code>200 OK</code> + <code>PAYMENT-RESPONSE</code></li><li><b>Ledger</b> → +10.000 créditos, saldo 9.999 após a chamada</li></ul></div>
       </div>
     </div>
     <div class="card rv d2" data-cardtabs>
@@ -111,7 +111,7 @@ X-AWall-Cost-Credits: 1
 X-AWall-Credits-Remaining: 0
 X-AWall-Price-Multiplier: 1.00
 
-<span class="cm"># accepts: exact USDC 5000000 · exact XLM 50000000 · pix BRL 290</span>
+<span class="cm"># accepts: exact USDC 5000000 · exact moeda nativa 50000000 · pix BRL 290</span>
 <span class="cm"># o agente assina as auth entries Soroban e repete a chamada</span>
 
 <span class="p">$</span> curl -i -H "PAYMENT-SIGNATURE: eyJ4NDAyVmVyc2lvbiI6MiwicmVz..." \
@@ -126,7 +126,7 @@ X-AWall-Credits-Remaining: 9999 <span class="caret"></span></pre>
     { <span class="k">"scheme"</span>: <span class="s">"exact"</span>, <span class="k">"network"</span>: <span class="s">"stellar:testnet"</span>,
       <span class="k">"asset"</span>: <span class="s">"USDC"</span>, <span class="k">"amount"</span>: <span class="s">"5000000"</span> },  <span class="cm">// 0,50 USDC</span>
     { <span class="k">"scheme"</span>: <span class="s">"exact"</span>, <span class="k">"network"</span>: <span class="s">"stellar:testnet"</span>,
-      <span class="k">"asset"</span>: <span class="s">"XLM"</span>,  <span class="k">"amount"</span>: <span class="s">"50000000"</span> }, <span class="cm">// 5,00 XLM</span>
+      <span class="k">"asset"</span>: <span class="s">"XLM"</span>,  <span class="k">"amount"</span>: <span class="s">"50000000"</span> }, <span class="cm">// 5,00 na moeda nativa (XLM na Stellar)</span>
     { <span class="k">"scheme"</span>: <span class="s">"pix"</span>,   <span class="k">"network"</span>: <span class="s">"pix:bcb"</span>,
       <span class="k">"asset"</span>: <span class="s">"BRL"</span>,  <span class="k">"amount"</span>: <span class="s">"290"</span> }        <span class="cm">// R$ 2,90</span>
   ]
@@ -199,7 +199,7 @@ X-AWall-Credits-Remaining: 9999 <span class="caret"></span></pre>
     <!-- secundário: dois trilhos -->
     <article class="tile mini-feat rv">
       <div><div class="feat-n">03 · DOIS TRILHOS NO MESMO 402</div>
-        <p>Um agente com carteira paga sozinho na Stellar, com a taxa patrocinada pelo facilitator. Uma pessoa paga o mesmo pacote por Pix. O crédito cai na mesma identidade.</p></div>
+        <p>Um agente com carteira paga sozinho em uma rede cripto, com a taxa patrocinada pelo facilitator. Uma pessoa paga o mesmo pacote por Pix. O crédito cai na mesma identidade.</p></div>
 <pre class="mini">accepts: [
 <span class="dot st"></span>exact  stellar:testnet  USDC   5000000
 <span class="dot st"></span>exact  stellar:testnet  XLM   50000000
@@ -218,12 +218,12 @@ X-AWall-Credits-Remaining: 9999 <span class="caret"></span></pre>
 ██╔╝ ██╗      ██║╚██████╔╝███████╗
 ╚═╝  ╚═╝      ╚═╝ ╚═════╝ ╚══════╝</pre>
   <h2 class="rv">Coloque um preço na sua API sem tocar nela.</h2>
-  <div class="btns rv d1"><a class="btn solid" href="https://github.com/veetin/awall-x402" target="_blank" rel="noopener">Ler o código <span>→</span></a><a class="btn ghost" href="https://stellar.expert/explorer/testnet/tx/1193d51bc83e0831e775b3f7fd13049f21f1868364008e905540be56375a048d" target="_blank" rel="noopener">Ver a liquidação na Stellar</a></div>
-  <p class="fine rv d2">AWall é um projeto do Hack Brasil 2026, trilha Pagamentos e finanças. Tudo aqui roda na testnet da Stellar: nenhum valor desta página é dinheiro real.</p>
+  <div class="btns rv d1"><a class="btn solid" href="https://github.com/veetin/awall-x402" target="_blank" rel="noopener">Ler o código <span>→</span></a><a class="btn ghost" href="https://stellar.expert/explorer/testnet/tx/1193d51bc83e0831e775b3f7fd13049f21f1868364008e905540be56375a048d" target="_blank" rel="noopener">Ver a liquidação na testnet</a></div>
+  <p class="fine rv d2">AWall é um projeto do Hack Brasil 2026, trilha Pagamentos e finanças. Tudo aqui roda na testnet das redes cripto: nenhum valor desta página é dinheiro real.</p>
 </section>
 
 </main>
-<footer><span>AWALL · X402</span><span>HACK BRASIL 2026 · STELLAR TESTNET</span></footer>
+<footer><span>AWALL · X402</span><span>HACK BRASIL 2026 · REDES CRIPTO TESTNET</span></footer>
 <script type="module" src="/src/landing/main.ts"></script>
 </body>
 </html>
