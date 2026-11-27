@@ -11,6 +11,13 @@ import react from "@vitejs/plugin-react";
  */
 const gateway = process.env["AWALL_URL"] ?? "http://127.0.0.1:8402";
 
+/**
+ * The technical documentation is its own app (`apps/landing`). In production
+ * its build is copied to `dist/documentacao`; in development this server
+ * forwards `/documentacao` to its dev server so both live under one origin.
+ */
+const docs = { target: "http://127.0.0.1:4180", ws: true };
+
 export default defineConfig({
   plugins: [react()],
   build: {
@@ -21,6 +28,6 @@ export default defineConfig({
       },
     },
   },
-  server: { host: "0.0.0.0", port: 4179, strictPort: true, proxy: { "/awall": gateway } },
+  server: { host: "0.0.0.0", port: 4179, strictPort: true, proxy: { "/awall": gateway, "/documentacao": docs } },
   preview: { host: "0.0.0.0", port: 4179, strictPort: true, proxy: { "/awall": gateway } },
 });

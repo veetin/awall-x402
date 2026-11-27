@@ -5,13 +5,15 @@ documento fixa o contrato de API que o gateway expõe para ele.
 
 ## O que é
 
-Uma aplicação **Vite + React + TypeScript** em `apps/console`, com três áreas:
+Uma aplicação **Vite + React + TypeScript** em `apps/console`, com três áreas,
+mais a documentação técnica (outro app, servido pelo mesmo build):
 
 | Área | Rota | Autenticação | Para quem |
 | --- | --- | --- | --- |
 | Console | `/` e abas | sessão (usuário e senha) | quem opera a API protegida |
 | Checkout | `/pay/:offerId` | nenhuma | a pessoa que vai pagar por Pix ou cripto, vinda do `extra.checkoutUrl` do 402 |
-| Landing | `/landing` | nenhuma | quem chega ao projeto e ainda não sabe o que ele faz |
+| Landing | `/landing` (`/` na Vercel) | nenhuma | quem chega ao projeto e ainda não sabe o que ele faz |
+| Documentação técnica | `/documentacao/` | nenhuma | quem quer o detalhe de trilhos, arquitetura, preço e como rodar |
 
 No checkout, o botão "Pagar com a carteira" abre um campo para colar o `PAYMENT-SIGNATURE`
 que a carteira produziu a partir dos termos copiados ali do lado, e manda para
@@ -72,15 +74,33 @@ azul para as redes cripto e verde-água para o Pix. É uma divergência conhecid
 ainda segue o visual anterior, e a cor das redes cripto e do Pix não é a mesma nas
 duas áreas. Alinhar as duas é uma decisão pendente.
 
+**Documentação técnica.** A landing é a página principal do projeto. O detalhe
+técnico fica numa página à parte, aberta pelo botão "Documentação técnica" (na
+barra de cima e no fechamento da landing): trilhos do 402, arquitetura, preço
+dinâmico com calculadora, como rodar localmente e uma prévia do console. É o app
+`apps/landing` (Vite + React, bilíngue PT e EN, abre em português a menos que o
+navegador esteja em inglês), servido sob `/documentacao/`. Em produção, o build
+do console roda `pnpm --filter @awall/landing build:embed`, que grava o
+resultado em `dist/documentacao`. Em desenvolvimento, o servidor do console
+(`:4179`) encaminha `/documentacao` para o dev server do app (`:4180`), então
+as duas páginas ficam na mesma origem. O botão "Página inicial" da documentação
+volta para `/landing`. O texto dela ainda diz "Stellar" onde descreve a
+implementação, e não passou pela troca para "redes cripto".
+
 **Publicação da landing.** Ela pode ir sozinha para a Vercel, sem gateway.
 O projeto usa `apps/console` como diretório raiz, e `apps/console/vercel.json`
-serve `landing.html` na raiz (`/`), mantém `/landing` e deixa o resto dar 404,
+serve `landing.html` na raiz (`/`), mantém `/landing`, serve a documentação
+técnica em `/documentacao/` e deixa o resto dar 404,
 sem fallback para o console: console e checkout dependem do gateway e não
 existem nesse deploy. Por isso os botões da landing apontam para o repositório
 e para a liquidação na testnet, e não para `/login`. A variável de projeto
 `ENABLE_EXPERIMENTAL_COREPACK=1` faz a Vercel usar o `pnpm` fixado em
 `packageManager`, e o Node do projeto precisa ser 24. Esse deploy não foi
 executado ainda: só o roteamento foi conferido, com um servidor estático local.
+O build do console agora também constrói o `apps/landing`, então o deploy
+precisa enxergar o workspace inteiro: na Vercel, a opção de incluir arquivos
+fora do diretório raiz tem de ficar ligada (é o padrão). Isso também não foi
+conferido na Vercel.
 
 Uma aplicação só, porque as três áreas consomem os mesmos dados e o mesmo
 deploy. O checkout é público e precisa carregar rápido num celular; o console é

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CodeBlock } from "./CodeBlock.js";
 import { ConsolePreview } from "./ConsolePreview.js";
 import {
-  CONSOLE_URL,
   COPY,
   REPO_URL,
   SAMPLE_402_JSON,
@@ -281,8 +280,8 @@ export function App() {
             <a className="btn sm quiet" href={REPO_URL} target="_blank" rel="noreferrer">
               {t.nav.github}
             </a>
-            <a className="btn sm" href={CONSOLE_URL} target="_blank" rel="noreferrer">
-              {t.nav.console}
+            <a className="btn sm" href="/landing">
+              {t.nav.home}
             </a>
           </div>
         </div>

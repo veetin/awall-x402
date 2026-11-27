@@ -17,7 +17,7 @@ export type Copy = {
     pricing: string;
     quickstart: string;
     consolePreview: string;
-    console: string;
+    home: string;
     github: string;
   };
   hero: {
@@ -134,14 +134,14 @@ export type Copy = {
 
 export const COPY: Record<Lang, Copy> = {
   pt: {
-    metaTitle: "AWall — Gateway x402 no lugar do 429 Too Many Requests",
+    metaTitle: "AWall — Documentação técnica",
     nav: {
       rails: "Trilhos 402",
       architecture: "Arquitetura",
       pricing: "Preço dinâmico",
       quickstart: "Rodar local",
       consolePreview: "Prévia Console",
-      console: "Console",
+      home: "Página inicial",
       github: "GitHub",
     },
     hero: {
@@ -447,14 +447,14 @@ export const COPY: Record<Lang, Copy> = {
     },
   },
   en: {
-    metaTitle: "AWall — x402 Gateway replacing 429 Too Many Requests",
+    metaTitle: "AWall — Technical documentation",
     nav: {
       rails: "402 Rails",
       architecture: "Architecture",
       pricing: "Dynamic pricing",
       quickstart: "Quickstart",
       consolePreview: "Console Preview",
-      console: "Console",
+      home: "Home",
       github: "GitHub",
     },
     hero: {
