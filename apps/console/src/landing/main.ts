@@ -1,12 +1,10 @@
 import "./landing.css";
 import { mountAbuse } from "./abuse";
-import { mountBackground } from "./background";
-import { $, $$, must, trackVisible } from "./dom";
+import { $, $$, trackVisible } from "./dom";
 import { Flow, type FlowMode } from "./flow";
 import { mountRefund } from "./refund";
 
 const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-const phone = window.matchMedia("(max-width: 700px)");
 
 // The reveal styles only apply once this class is set, so the page stays
 // readable if the script never runs.
@@ -58,8 +56,6 @@ $$("[data-cardtabs]").forEach((root) => bindTabs(root, ".cardtabs button", ".car
 /* Scenes                                                                   */
 /* ------------------------------------------------------------------------ */
 
-const background = mountBackground(must<HTMLCanvasElement>("canvas.bg-streams"), reduced, phone);
-
 type Scene = { flow: Flow; visible: { readonly visible: boolean } };
 const scenes: Scene[] = [];
 
@@ -67,9 +63,7 @@ const scenes: Scene[] = [];
 // still and only moves when asked.
 const heroStage = $<HTMLElement>("#sim .stage");
 const hero = heroStage
-  ? Flow.create(heroStage, $<HTMLElement>("#sim .term"), reduced.matches ? "manual" : "auto", (event) =>
-      background?.(event),
-    )
+  ? Flow.create(heroStage, $<HTMLElement>("#sim .term"), reduced.matches ? "manual" : "auto")
   : null;
 if (heroStage && hero) {
   scenes.push({ flow: hero, visible: trackVisible(heroStage) });

@@ -36,8 +36,6 @@ function mix(from: Rgb, to: Rgb, amount: number): Rgb {
 
 export type Rail = "stellar" | "pix";
 export type FlowMode = "auto" | "manual" | "pass" | "block" | "rails" | "blind";
-/** What happened on screen, so the page background can follow the hero. */
-export type FlowEvent = "free" | "blocked" | Rail;
 
 type PacketKind = "req" | "pass" | "r402" | Rail;
 type Packet = { kind: PacketKind; t: number; speed: number; jitter: number; decided: boolean; done: boolean };
@@ -79,7 +77,6 @@ export class Flow {
     ctx: CanvasRenderingContext2D,
     private readonly term: HTMLElement | null,
     private mode: FlowMode,
-    private readonly onEvent: (event: FlowEvent) => void,
   ) {
     this.ctx = ctx;
     this.labels = (["CLIENTE", "AWALL", "ORIGIN"] as const).map((name, index) => {
@@ -101,12 +98,11 @@ export class Flow {
     stage: HTMLElement,
     term: HTMLElement | null,
     mode: FlowMode,
-    onEvent: (event: FlowEvent) => void = () => undefined,
   ): Flow | null {
     const canvas = stage.querySelector("canvas");
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return null;
-    return new Flow(stage, canvas, ctx, term, mode, onEvent);
+    return new Flow(stage, canvas, ctx, term, mode);
   }
 
   /** Send one request through the wall. */
@@ -190,7 +186,6 @@ export class Flow {
           p.kind = "pass";
           p.t = 1;
           this.updateMeter();
-          this.onEvent("free");
           this.log(
             `<span class="c">${clock()}</span> <span class="w">GET</span> /v1/cotacoes <span class="g">200</span> <span class="c">cota ${this.used}/${this.limit}</span>`,
           );
@@ -199,7 +194,6 @@ export class Flow {
           p.t = 0;
           this.blocked += 1;
           this.flash = 1;
-          this.onEvent("blocked");
           this.log(
             `<span class="c">${clock()}</span> <span class="w">GET</span> /v1/cotacoes <span class="r">402 Payment Required</span> <span class="c">accepts=[</span><span class="b">exact/stellar</span><span class="c">,</span><span class="t">pix</span><span class="c">]</span>`,
           );
@@ -209,7 +203,6 @@ export class Flow {
         p.done = true;
         this.used = 0;
         this.updateMeter();
-        this.onEvent(p.kind);
         this.log(
           p.kind === "stellar"
             ? `<span class="c">${clock()}</span> <span class="b">✓ stellar</span> exact 0,50 USDC liquidado <span class="y">+10.000 créditos</span>`

@@ -45,11 +45,10 @@ arquivo e nos textos da página, e precisam acompanhar o `awall.yaml` à mão. A
 landing não chama o gateway. O único dado de execução real é a liquidação
 linkada no fechamento (`1193d51b…`, na testnet).
 
-O fundo é um renderer WebGL2 que desenha rios de grãos como ASCII em tela
-cheia (`background.ts` e `streams.ts`) e segue os eventos do hero: requisição
-dentro da cota, 402 e o pagamento que o responde. Sem WebGL2 o canvas some e o
-resto continua. Com `prefers-reduced-motion` as cenas viram quadros parados, e
-o hero só anda quando o visitante pede.
+O fundo é estático: preto com linhas de varredura e vinheta, sem animação. Os
+botões de ação seguem o padrão em pílula do console (metal claro para o
+primário, vidro para o secundário). Com `prefers-reduced-motion` as cenas viram
+quadros parados, e o hero só anda quando o visitante pede.
 
 A Solana aparece só no bloco dos trilhos, como linha "em breve" com marcador
 vazado e texto apagado, e não nos números do hero nem na liquidação: o gateway
@@ -66,8 +65,7 @@ laranja e vermelho nos selos de status (`allow_free`, `waiting`, `refunded`)
 indicam só estado.
 
 A landing **não** importa o `theme.css`: tem paleta própria, com azul para a
-Stellar e verde-água para o Pix nos cartões, enquanto o fundo ASCII mantém os
-rios âmbar e azul da versão anterior. É uma divergência conhecida: o console
+Stellar e verde-água para o Pix nos cartões. É uma divergência conhecida: o console
 ainda segue o visual anterior, e a cor da Stellar e do Pix não é a mesma nas
 duas áreas. Alinhar as duas é uma decisão pendente.
 
