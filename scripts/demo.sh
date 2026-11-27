@@ -83,9 +83,9 @@ echo "== control plane without a token"
 curl -s -o /dev/null -w "   summary %{http_code}\n" "http://127.0.0.1:$AWALL_PORT/awall/stats/summary"
 
 if [ -n "${STELLAR_SECRET:-}" ] && [ "${AGENT_LIVE:-0}" = "1" ]; then
-  # Real payment: the agent signs and resubmits, so this spends testnet XLM and
+  # Real payment: the agent signs and resubmits, so this spends testnet funds and
   # needs the gateway pointed at a facilitator that settles on this network.
-  echo "== agent live (signs and pays; spends testnet XLM)"
+  echo "== agent live (signs and pays; spends testnet funds)"
   pnpm --dir "$ROOT" --filter @awall/agent-m2m start -- \
     --requests 200 --interval 60 \
     --url "http://127.0.0.1:$AWALL_PORT/v1/search?q=camera"
