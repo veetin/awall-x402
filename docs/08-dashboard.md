@@ -5,13 +5,15 @@ documento fixa o contrato de API que o gateway expõe para ele.
 
 ## O que é
 
-Uma aplicação **Vite + React + TypeScript** em `apps/console`, com duas áreas:
+Uma aplicação **Vite + React + TypeScript** em `apps/console`, com três áreas:
 
 | Área | Rota | Autenticação | Para quem |
 | --- | --- | --- | --- |
+| Console | `/` e abas | sessão (usuário e senha) | quem opera a API protegida |
 | Checkout | `/pay/:offerId` | nenhuma | a pessoa que vai pagar por Pix ou cripto, vinda do `extra.checkoutUrl` do 402 |
+| Landing | `/landing` | nenhuma | quem chega ao projeto e ainda não sabe o que ele faz |
 
-O botão "Pagar com a carteira" abre um campo para colar o `PAYMENT-SIGNATURE`
+No checkout, o botão "Pagar com a carteira" abre um campo para colar o `PAYMENT-SIGNATURE`
 que a carteira produziu a partir dos termos copiados ali do lado, e manda para
 `POST /awall/offers/:id/pay`. O console não assina nada: a chave fica na
 carteira, e o gateway revalida o payload contra a offer gravada antes de
@@ -23,9 +25,44 @@ um botão de copia-e-cola para esse código e um botão que copia os termos Stel
 da offer para a carteira. O botão de copiar usa `navigator.clipboard` quando o
 contexto é seguro e cai num `textarea` escondido com `execCommand` quando não é,
 porque um checkout aberto por HTTP no celular não tem contexto seguro.
-| Console | `/` e abas | token de administrador | quem opera a API protegida |
 
-Uma aplicação só, porque as duas áreas consomem os mesmos dados e o mesmo
+A landing é uma segunda entrada do mesmo build (`landing.html`), em TypeScript
+sem React, para carregar leve. É uma página de venda de cinco telas, uma por
+seção, com `scroll-snap`: o scroll vai de seção em seção, sem rolagem livre, e
+uma barra de pontos na lateral mostra onde se está. Em janelas baixas (até 820
+px de altura) ou estreitas o snap vira "por proximidade", porque a seção não
+cabe numa tela. As telas são: o hero, a ideia (429 contra 402 e o trecho
+`pricing` do `awall.yaml`), os trilhos, a prova e o fechamento.
+
+Ela não chama o gateway: o hero simula um agente contra a política padrão de
+`awall.yaml` (token bucket de 130 créditos com recarga de 100 por minuto, pacote
+de 10.000 créditos a 0,50 USDC, 5,00 XLM ou R$ 2,90), com dinheiro em `bigint`.
+Esses valores estão copiados em `src/landing/sim.ts` e precisam acompanhar o
+YAML à mão, assim como o trecho `pricing` mostrado na tela da ideia. Os números
+da prova (liquidação `1193d51b…`, réplicas 133 contra 278, contagem de testes)
+vêm do README e mudam junto com ele. Os rios do hero são WebGL2 desenhado como
+ASCII; sem WebGL2 o canvas some e o resto da página continua funcionando.
+
+**Identidade visual.** Console, checkout e landing compartilham
+`src/theme.css` (cores, fontes e movimento) e a mesma linguagem: painéis de
+vidro, botões em pílula, barra de topo flutuante com as abas no console e linhas
+de varredura no fundo. Cada cor tem um significado só: verde é cota gratuita,
+âmbar é Stellar e azul é Pix. Na landing são os três potes; no console são as
+colunas de receita, os selos de trilho e os painéis do checkout. Verde, laranja
+e vermelho nos selos de status (`allow_free`, `waiting`, `refunded`) indicam só
+estado. Mudou um token, mudou nas três áreas: confira as três antes de fechar.
+
+**Publicação da landing.** Ela pode ir sozinha para a Vercel, sem gateway.
+O projeto usa `apps/console` como diretório raiz, e `apps/console/vercel.json`
+serve `landing.html` na raiz (`/`), mantém `/landing` e deixa o resto dar 404,
+sem fallback para o console: console e checkout dependem do gateway e não
+existem nesse deploy. Por isso os botões da landing apontam para o repositório
+e para a liquidação na Stellar, e não para `/login`. A variável de projeto
+`ENABLE_EXPERIMENTAL_COREPACK=1` faz a Vercel usar o `pnpm` fixado em
+`packageManager`, e o Node do projeto precisa ser 24. Esse deploy não foi
+executado ainda: só o roteamento foi conferido, com um servidor estático local.
+
+Uma aplicação só, porque as três áreas consomem os mesmos dados e o mesmo
 deploy. O checkout é público e precisa carregar rápido num celular; o console é
 interno.
 

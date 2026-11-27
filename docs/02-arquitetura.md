@@ -236,7 +236,7 @@ viável.
 awall-x402/
 ├── apps/
 │   ├── gateway/          Hono — proxy, política, ledger, orquestração de pagamento
-│   ├── console/          Vite + React — dashboard do operador e página de checkout
+│   ├── console/          Vite + React — dashboard do operador, checkout e landing
 │   ├── origin-demo/      API protegida de exemplo (catálogo + rota medida)
 │   └── agent-m2m/        agente autônomo com carteira, usa @x402/fetch
 ├── packages/

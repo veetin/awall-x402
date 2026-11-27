@@ -15,6 +15,9 @@
 	handle /login {
 		reverse_proxy console:4179
 	}
+	handle /landing {
+		reverse_proxy console:4179
+	}
 	handle /live* {
 		reverse_proxy console:4179
 	}

@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="AWall troca o 429 Too Many Requests por 402 Payment Required: acima da cota gratuita, o agente paga em USDC ou XLM na Stellar, ou uma pessoa paga por Pix, e o trabalho continua." />
+    <meta name="theme-color" content="#08090d" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400..700&display=swap" rel="stylesheet" />
+    <title>AWall — o 429 virou um preço</title>
+  </head>
+  <body class="landing">
+    <div class="scanlines" aria-hidden="true"></div>
+
+    <header class="nav">
+      <div class="nav-inner">
+        <a class="nav-mark" href="#topo" aria-label="AWall, início">AWall<span class="nav-dot">.</span><span class="nav-badge">x402</span></a>
+        <nav class="nav-links" aria-label="Seções">
+          <a href="#ideia">A ideia</a>
+          <a href="#trilhos">Trilhos</a>
+          <a href="#prova">Prova</a>
+        </nav>
+        <a class="pill pill-primary pill-small" href="https://github.com/veetin/awall-x402" rel="noopener" target="_blank">GitHub</a>
+      </div>
+    </header>
+
+    <main id="topo">
+      <section class="hero slide" aria-labelledby="hero-title">
+        <canvas class="streams" aria-hidden="true"></canvas>
+
+        <div class="hero-copy">
+          <p class="eyebrow mono"><span class="caret">&gt;</span> gateway x402 · stellar:testnet · pix</p>
+          <h1 id="hero-title" class="hero-title" data-words>Troque o 429 por um preço.</h1>
+          <p class="hero-lede reveal">
+            AWall fica na frente da sua API. Dentro da cota gratuita, a requisição passa.
+            Acima dela, em vez de recusar, o gateway responde <span class="mono">402 Payment Required</span>
+            com os termos do x402: o agente paga em USDC ou XLM na Stellar, ou uma pessoa paga por Pix,
+            e o trabalho continua.
+          </p>
+          <div class="hero-actions reveal">
+            <a class="pill pill-primary" href="https://github.com/veetin/awall-x402" rel="noopener" target="_blank">Ver o código</a>
+            <a class="pill pill-ghost" href="#ideia">Como funciona</a>
+          </div>
+          <p class="fine reveal">
+            Simulação com a política padrão de <span class="mono">awall.yaml</span>: 100 créditos por minuto
+            com folga de 30, pacote de 10.000 créditos a 0,50 USDC, 5,00 XLM ou R$ 2,90.
+            Os rios mostram o próximo minuto; os totais só mudam quando um minuto é enviado.
+          </p>
+        </div>
+
+        <div class="hero-stage">
+          <div class="flow">
+            <article class="glass lit flow-card reveal" data-flow-start>
+              <p class="label mono">chegando agora</p>
+              <p class="flow-agent">agent-m2m</p>
+              <p class="flow-route mono" data-route>GET /v1/search?q=camera</p>
+              <p class="flow-rate mono"><strong data-rate-echo>300</strong> req/min · <span data-cost>1 crédito</span> cada</p>
+              <p class="flow-balance mono">saldo <strong data-balance>0</strong> créditos</p>
+            </article>
+
+            <div class="wall" aria-hidden="true">
+              <p class="wall-label mono">AWall<br />:8402</p>
+              <pre class="wall-bricks mono" data-wall></pre>
+            </div>
+
+            <ol class="pots" aria-label="Para onde vai cada requisição">
+              <li class="glass lit pot pot-free reveal" data-pot="0">
+                <span class="pot-dot" aria-hidden="true"></span>
+                <p class="label">Cota gratuita <span class="mono">→ origin</span></p>
+                <p class="pot-total"><span data-total="free">0</span> <small>req.</small></p>
+                <p class="pot-sub mono">100 créditos/min, folga de 30</p>
+                <p class="pot-line mono" data-line="free">esperando o primeiro minuto</p>
+              </li>
+              <li class="glass lit pot pot-stellar reveal" data-pot="1">
+                <span class="pot-dot" aria-hidden="true"></span>
+                <p class="label">402 → Stellar <span class="mono">exact · USDC</span></p>
+                <p class="pot-total"><span data-total="stellar">0,00</span> <small>USDC</small></p>
+                <p class="pot-sub mono" data-sub="stellar">0 pacotes · 0 req. pagas</p>
+                <p class="pot-line mono" data-line="stellar">agente autônomo, sem humano</p>
+              </li>
+              <li class="glass lit pot pot-pix reveal" data-pot="2">
+                <span class="pot-dot" aria-hidden="true"></span>
+                <p class="label">402 → Pix <span class="mono">pix · BRL</span></p>
+                <p class="pot-total"><span data-total="pix">R$ 0,00</span></p>
+                <p class="pot-sub mono" data-sub="pix">0 pacotes · 0 req. pagas</p>
+                <p class="pot-line mono" data-line="pix">humano no circuito, QR na tela</p>
+              </li>
+            </ol>
+          </div>
+
+          <form class="glass controls reveal" data-controls>
+            <div class="control control-range">
+              <label for="rate">Ritmo do agente</label>
+              <input id="rate" name="rate" type="range" min="20" max="600" step="10" value="300" />
+              <output for="rate" class="mono" data-rate-out>300 req/min</output>
+            </div>
+            <label class="control switch">
+              <input type="checkbox" role="switch" name="human" data-human />
+              <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+              <span>Humano no circuito</span>
+            </label>
+            <button type="button" class="pill pill-primary" data-send>Mandar mais um minuto</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="ideia" class="section slide idea" aria-labelledby="ideia-title">
+        <header class="section-head reveal">
+          <p class="eyebrow mono"><span class="caret">&gt;</span> a ideia</p>
+          <h2 id="ideia-title">O limite deixa de ser um não.</h2>
+          <p class="section-lede">
+            Hoje, quem passa da cota leva um 429 e vai embora. Com o AWall, leva um preço, paga e continua.
+          </p>
+        </header>
+        <div class="cases">
+          <article class="glass lit case case-before reveal">
+            <p class="case-tag mono"><i class="dot"></i> sem AWall</p>
+            <p class="case-figure" aria-hidden="true">429</p>
+            <pre class="mini case-code mono">GET /v1/search?q=camera
+HTTP/1.1 429 Too Many Requests</pre>
+            <p>A cota acabou e a porta fecha. O cliente espera, desiste ou insiste, e o pedido recusado não rende nada.</p>
+          </article>
+          <article class="glass lit case case-after reveal">
+            <p class="case-tag mono"><i class="dot dot-live"></i> com AWall</p>
+            <p class="case-figure" aria-hidden="true">402</p>
+            <pre class="mini case-code mono">GET /v1/search?q=camera
+HTTP/1.1 402 Payment Required
+<span class="on"><i class="dot dot-stellar"></i> USDC 0,50</span>  <span class="on"><i class="dot dot-stellar"></i> XLM 5,00</span>  <span class="on"><i class="dot dot-pix"></i> Pix R$ 2,90</span></pre>
+            <p>A cota acabou e o gateway diz quanto custa: um pacote de 10.000 créditos. O agente paga sozinho, uma pessoa paga por Pix, e o pedido segue.</p>
+          </article>
+          <article class="glass lit case reveal">
+            <p class="case-tag mono"><i class="dot"></i> sua API não muda</p>
+            <p class="case-figure" aria-hidden="true">0</p>
+            <pre class="mini case-code mono">pricing:
+  pack_credits: 10000
+  price_usdc: "0.50"
+  price_xlm: "5.00"
+  price_brl_cents: 290</pre>
+            <p>Zero linhas mudadas na sua API. O AWall fica na frente da origin e lê um arquivo: cota grátis, preço do pacote e crédito por rota.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="trilhos" class="section slide features" aria-labelledby="trilhos-title">
+        <div class="drift" aria-hidden="true"><span></span><span></span><span></span></div>
+        <header class="section-head reveal">
+          <p class="eyebrow mono"><span class="caret">&gt;</span> o que o gateway faz por você</p>
+          <h2 id="trilhos-title">A parte chata, resolvida no gateway.</h2>
+        </header>
+        <div class="tiles">
+          <article class="glass lit tile reveal">
+            <pre class="mini mini-accepts mono" aria-hidden="true" data-accepts><span>accepts: [</span>
+<span data-step><i class="dot dot-stellar"></i> exact  stellar:testnet  USDC   5000000</span>
+<span data-step><i class="dot dot-stellar"></i> exact  stellar:testnet  XLM   50000000</span>
+<span data-step><i class="dot dot-pix"></i> pix    pix:bcb          BRL        290</span>
+<span>]</span></pre>
+            <h3>Dois trilhos no mesmo 402</h3>
+            <p>Um agente com carteira paga sozinho na Stellar, com a taxa patrocinada pelo facilitator. Uma pessoa paga o mesmo pacote por Pix. O crédito cai na mesma identidade.</p>
+          </article>
+          <article class="glass lit tile reveal">
+            <pre class="mini mini-gauge mono" aria-hidden="true" data-gauge>escore 0,00 [····················]
+preço  1,00× → 0,50 USDC</pre>
+            <h3>Quem abusa paga mais</h3>
+            <p>Rajadas, chamadas repetidas e erros viram um escore. O preço do pacote sobe até 3× o valor base; tráfego bem comportado continua pagando o preço de tabela.</p>
+          </article>
+          <article class="glass lit tile reveal">
+            <pre class="mini mini-ledger mono" aria-hidden="true" data-ledger><span data-step>-2  consumo   GET /v1/items/42</span>
+<span data-step>    origin    503 Service Unavailable</span>
+<span data-step>+2  estorno   a falha foi nossa</span>
+<span data-step>──  saldo     9.998 → 10.000</span></pre>
+            <h3>Origin caiu, crédito volta</h3>
+            <p>O ledger é só de inclusão: cada consumo e cada estorno é uma linha. Se a sua API responde 5xx, o cliente não paga pelo erro.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="prova" class="section slide proof" aria-labelledby="prova-title">
+        <header class="section-head reveal">
+          <p class="eyebrow mono"><span class="caret">&gt;</span> rodou de verdade</p>
+          <h2 id="prova-title">Uma liquidação de verdade, na testnet.</h2>
+          <p class="section-lede">Um agente recebeu o 402, pagou em XLM e seguiu trabalhando. Toque no recibo para ver o outro lado.</p>
+        </header>
+        <div class="proof-grid">
+          <div class="receipt-stage reveal">
+            <button type="button" class="receipt" aria-pressed="false" aria-label="Recibo da liquidação na testnet Stellar. Pressione para virar." data-receipt>
+              <span class="receipt-face receipt-front">
+                <svg class="receipt-guilloche" viewBox="-100 -100 200 200" aria-hidden="true"><path data-guilloche /></svg>
+                <span class="receipt-chip" aria-hidden="true"></span>
+                <span class="receipt-text mono">┌─ AWALL · RECIBO ──────────────┐
+│ rede     stellar:testnet      │
+│ trilho   exact · XLM          │
+│ ledger   5928781              │
+│ status   successful: true     │
+│ crédito  +10000               │
+└───────────────────────────────┘</span>
+                <span class="receipt-hash mono">1193d51b c83e0831 e775b3f7 fd13049f</span>
+              </span>
+              <span class="receipt-face receipt-back">
+                <svg class="receipt-guilloche" viewBox="-100 -100 200 200" aria-hidden="true"><path data-guilloche /></svg>
+                <span class="receipt-text mono">PAYMENT-RESPONSE
+{
+  "success": true,
+  "network": "stellar:testnet",
+  "transaction":
+    "1193d51bc83e0831e775
+     b3f7fd13049f21f18683
+     64008e905540be56375a
+     048d"
+}</span>
+              </span>
+              <span class="receipt-glare" aria-hidden="true"></span>
+            </button>
+            <p class="fine">
+              <a href="https://stellar.expert/explorer/testnet/tx/1193d51bc83e0831e775b3f7fd13049f21f1868364008e905540be56375a048d" rel="noopener" target="_blank">Ver a transação no stellar.expert ↗</a>
+            </p>
+          </div>
+
+          <div class="glass lit meter-panel reveal" data-meter>
+            <h3>Uma cota só, duas réplicas</h3>
+            <p>400 requisições em round robin contra duas réplicas do gateway, com cota de 130 créditos.</p>
+            <div class="meter" role="img" aria-label="Com Redis compartilhado passaram 133 de 400 requisições; sem Redis passaram 278.">
+              <div class="meter-row">
+                <span class="mono">com REDIS_URL</span>
+                <span class="meter-bar"><span style="--to: 33.25%"></span></span>
+                <strong class="mono">133</strong>
+              </div>
+              <div class="meter-row">
+                <span class="mono">sem Redis</span>
+                <span class="meter-bar"><span style="--to: 69.5%"></span></span>
+                <strong class="mono">278</strong>
+              </div>
+            </div>
+            <dl class="facts mono">
+              <div><dt>testes</dt><dd>259 passando, 3 pulados</dd></div>
+              <div><dt>bordas</dt><dd>Traefik v3.2 e Envoy v1.32</dd></div>
+              <div><dt>taxa</dt><dd>patrocinada pelo facilitator</dd></div>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <section id="fim" class="section slide close" aria-labelledby="fim-title">
+        <pre class="banner-402 mono" aria-hidden="true" data-scramble>██╗  ██╗ ██████╗ ██████╗
+██║  ██║██╔═████╗╚════██╗
+███████║██║██╔██║ █████╔╝
+╚════██║████╔╝██║██╔═══╝
+     ██║╚██████╔╝███████╗
+     ╚═╝ ╚═════╝ ╚══════╝</pre>
+        <h2 id="fim-title" class="close-title reveal">Pague. Continue.</h2>
+        <div class="close-actions reveal">
+          <a class="pill pill-primary magnetic" href="https://github.com/veetin/awall-x402" rel="noopener" target="_blank">Ler o código</a>
+          <a class="pill pill-ghost magnetic" href="https://stellar.expert/explorer/testnet/tx/1193d51bc83e0831e775b3f7fd13049f21f1868364008e905540be56375a048d" rel="noopener" target="_blank">Ver a liquidação na Stellar</a>
+        </div>
+        <p class="fine close-fine">
+          AWall é um projeto do Hack Brasil 2026, trilha Pagamentos e finanças. Tudo aqui roda na testnet
+          da Stellar: nenhum valor desta página é dinheiro de verdade.
+        </p>
+      </section>
+    </main>
+
+    <nav class="rail" aria-label="Seções da página">
+      <a href="#topo"><span>Início</span></a>
+      <a href="#ideia"><span>A ideia</span></a>
+      <a href="#trilhos"><span>Trilhos</span></a>
+      <a href="#prova"><span>Prova</span></a>
+      <a href="#fim"><span>Fim</span></a>
+    </nav>
+
+    <script type="module" src="/src/landing/main.ts"></script>
+  </body>
+</html>
