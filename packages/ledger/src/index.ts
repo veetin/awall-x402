@@ -7,6 +7,8 @@ export {
   usageRollups,
   policyVersions,
   adminAudit,
+  consoleUsers,
+  consoleSessions,
   schema,
   type Identity,
   type UsageEvent,
@@ -16,6 +18,8 @@ export {
   type UsageRollup,
   type PolicyVersion,
   type AdminAuditEntry,
+  type ConsoleUser,
+  type ConsoleSession,
 } from "./schema.js";
 export type { Database, Transaction, Executor, Schema } from "./db.js";
 export {
@@ -24,7 +28,28 @@ export {
   MIGRATIONS_FOLDER,
   type LedgerDatabase,
 } from "./connect.js";
-export { newId, newIdentityId, newOfferId, newPaymentId } from "./ids.js";
+export {
+  newId,
+  newIdentityId,
+  newOfferId,
+  newPaymentId,
+  newConsoleUserId,
+  newConsoleSessionId,
+} from "./ids.js";
+export {
+  createConsoleUser,
+  findConsoleUserByUsername,
+  touchConsoleUserLogin,
+  disableConsoleUser,
+  createConsoleSession,
+  findLiveConsoleSession,
+  revokeConsoleSession,
+  countActiveConsoleUsers,
+  type CreateConsoleUserInput,
+  type CreateConsoleUserResult,
+  type CreateConsoleSessionInput,
+  type ConsoleSessionActor,
+} from "./console-users.js";
 export {
   ensureIdentity,
   getIdentity,

@@ -24,3 +24,5 @@ export function newId(prefix: string, size: number = DEFAULT_SIZE): string {
 export const newIdentityId = (): string => newId("idt");
 export const newOfferId = (): string => newId("ofr");
 export const newPaymentId = (): string => newId("pay");
+export const newConsoleUserId = (): string => newId("usr");
+export const newConsoleSessionId = (): string => newId("ses");

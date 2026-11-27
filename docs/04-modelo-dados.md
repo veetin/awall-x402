@@ -118,6 +118,47 @@ Invariante verificável por teste: para toda identidade,
 é igual ao saldo. Um teste de propriedade sobre essa invariante vale mais que
 qualquer teste de unidade do ledger.
 
+### `console_users`
+
+Quem entra no console do operador. Não tem relação com `identities`: identidade é
+quem consome a API, usuário de console é quem opera o gateway.
+
+| Coluna | Tipo | Nota |
+| --- | --- | --- |
+| `id` | text PK | prefixo `usr_` |
+| `username` | text UNIQUE | como digitado no login |
+| `password_hash` | text | argon2id em formato PHC, nunca a senha |
+| `created_at` | timestamptz | |
+| `last_login_at` | timestamptz null | nulo até o primeiro login |
+| `disabled_at` | timestamptz null | nulo enquanto ativo |
+
+Revogação é `disabled_at`, não `DELETE`: o log de auditoria continua apontando
+para um `username` que resolve. Preencher `disabled_at` também revoga, na mesma
+transação, toda sessão viva do usuário — cookie já emitido para de valer.
+
+O hash é argon2id do `node:crypto` (nativo a partir do Node 24), com os
+parâmetros em `apps/gateway/src/auth.ts`. O formato PHC guarda o custo junto do
+hash, então subir o custo depois não invalida o que já está gravado.
+
+### `console_sessions`
+
+Uma linha por login do console.
+
+| Coluna | Tipo | Nota |
+| --- | --- | --- |
+| `id` | text PK | prefixo `ses_` |
+| `user_id` | text FK | referência a `console_users.id` |
+| `token_hash` | text UNIQUE | SHA-256 do token de sessão, hex |
+| `created_at` | timestamptz | |
+| `expires_at` | timestamptz | |
+| `revoked_at` | timestamptz null | nulo enquanto válida; preenchido no logout |
+
+Vale a mesma regra da chave de API: **só o hash persiste**. O token em claro
+existe no cookie `HttpOnly` e em nenhum outro lugar, então um dump do banco não
+entrega sessão viva. Expirada, revogada e de usuário desabilitado são a mesma
+resposta — `401` — porque não há nada que o cliente deva aprender sobre qual dos
+três se aplicou.
+
 ## Transações
 
 **Débito de crédito** (requisição atendida com saldo):
@@ -152,6 +193,9 @@ o `usage_event`. O cliente não paga por falha do servidor.
 ## Segurança do dado
 
 - Chave de API nunca é persistida em claro, só o hash.
+- Senha de console nunca é persistida em claro, só o hash argon2id; e nunca
+  aparece em log, em mensagem de erro ou em URL.
+- Token de sessão do console nunca é persistido em claro, só o SHA-256.
 - Webhook da AbacatePay tem assinatura validada; além disso, o gateway confirma o
   status consultando a API da AbacatePay antes de creditar. Webhook é gatilho, não
   é fonte de verdade.
