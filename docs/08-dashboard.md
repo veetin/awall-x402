@@ -27,35 +27,49 @@ contexto é seguro e cai num `textarea` escondido com `execCommand` quando não 
 porque um checkout aberto por HTTP no celular não tem contexto seguro.
 
 A landing é uma segunda entrada do mesmo build (`landing.html`), em TypeScript
-sem React, para carregar leve. É uma página de venda de cinco telas, uma por
-seção, com `scroll-snap`: o scroll vai de seção em seção, sem rolagem livre, e
-uma barra de pontos na lateral mostra onde se está. Em janelas baixas (até 820
-px de altura) ou estreitas o snap vira "por proximidade", porque a seção não
-cabe numa tela. As telas são: o hero, a ideia (429 contra 402 e o trecho
-`pricing` do `awall.yaml`), os trilhos, a prova e o fechamento.
+sem React, para carregar leve, com CSS próprio (`src/landing/landing.css`). O
+scroll é livre. A página tem: o hero, com uma simulação que o visitante comanda
+(enviar requisição, estourar a cota, pagar por Stellar ou Pix); o manifesto,
+com os três destinos da política; uma história de cena fixa que acompanha o
+passo na tela (dentro da cota, 402, dois trilhos, origin cega); o protocolo,
+com o 402 linha por linha; os recursos, com o preço que reage ao tráfego e o
+estorno automático; e o fechamento.
 
-Ela não chama o gateway: o hero simula um agente contra a política padrão de
-`awall.yaml` (token bucket de 130 créditos com recarga de 100 por minuto, pacote
-de 10.000 créditos a 0,50 USDC, 5,00 XLM ou R$ 2,90), com dinheiro em `bigint`.
-Esses valores estão copiados em `src/landing/sim.ts` e precisam acompanhar o
-YAML à mão, assim como o trecho `pricing` mostrado na tela da ideia. Os números
-da prova (liquidação `1193d51b…`, réplicas 133 contra 278, contagem de testes)
-vêm do README e mudam junto com ele. Os rios do hero são WebGL2 desenhado como
-ASCII; sem WebGL2 o canvas some e o resto da página continua funcionando.
+Nada ali é medição. As cenas do hero, do preço e do estorno trazem o selo
+EXEMPLO, e a cena da história é ilustrativa. O que é número de produto tem
+fonte: o preço da seção de abuso usa as mesmas fórmulas do gateway
+(`abuseMultiplier` e `applyMultiplier`, em `src/landing/sim.ts`), com dinheiro em
+`bigint`. Os valores da política padrão (cota de 100 créditos por minuto, pacote
+de 10.000 créditos a 0,50 USDC, 5,00 XLM ou R$ 2,90) estão copiados nesse
+arquivo e nos textos da página, e precisam acompanhar o `awall.yaml` à mão. A
+landing não chama o gateway. O único dado de execução real é a liquidação
+linkada no fechamento (`1193d51b…`, na testnet).
 
-A Solana aparece na tela dos trilhos só como "em breve", com marcador vazado e
-texto apagado, e não nos números do hero nem na prova: o gateway ainda não
-liquida nela, e nada na landing pode mostrar um trilho que não rodou. Quando a
-Solana for liquidada de verdade, ela entra nessas telas com o dado da execução.
+O fundo é um renderer WebGL2 que desenha rios de grãos como ASCII em tela
+cheia (`background.ts` e `streams.ts`) e segue os eventos do hero: requisição
+dentro da cota, 402 e o pagamento que o responde. Sem WebGL2 o canvas some e o
+resto continua. Com `prefers-reduced-motion` as cenas viram quadros parados, e
+o hero só anda quando o visitante pede.
 
-**Identidade visual.** Console, checkout e landing compartilham
-`src/theme.css` (cores, fontes e movimento) e a mesma linguagem: painéis de
-vidro, botões em pílula, barra de topo flutuante com as abas no console e linhas
-de varredura no fundo. Cada cor tem um significado só: verde é cota gratuita,
-âmbar é Stellar e azul é Pix. Na landing são os três potes; no console são as
-colunas de receita, os selos de trilho e os painéis do checkout. Verde, laranja
-e vermelho nos selos de status (`allow_free`, `waiting`, `refunded`) indicam só
-estado. Mudou um token, mudou nas três áreas: confira as três antes de fechar.
+A Solana aparece só no bloco dos trilhos, como linha "em breve" com marcador
+vazado e texto apagado, e não nos números do hero nem na liquidação: o gateway
+ainda não liquida nela, e nada na landing pode mostrar um trilho que não rodou.
+Quando a Solana for liquidada de verdade, ela entra nessas telas com o dado da
+execução.
+
+**Identidade visual.** Console e checkout compartilham `src/theme.css` (cores,
+fontes e movimento) e a mesma linguagem: painéis de vidro, botões em pílula,
+barra de topo flutuante com as abas e linhas de varredura no fundo. Cada cor
+tem um significado só: verde é cota gratuita, âmbar é Stellar e azul é Pix, nas
+colunas de receita, nos selos de trilho e nos painéis do checkout. Verde,
+laranja e vermelho nos selos de status (`allow_free`, `waiting`, `refunded`)
+indicam só estado.
+
+A landing **não** importa o `theme.css`: tem paleta própria, com azul para a
+Stellar e verde-água para o Pix nos cartões, enquanto o fundo ASCII mantém os
+rios âmbar e azul da versão anterior. É uma divergência conhecida: o console
+ainda segue o visual anterior, e a cor da Stellar e do Pix não é a mesma nas
+duas áreas. Alinhar as duas é uma decisão pendente.
 
 **Publicação da landing.** Ela pode ir sozinha para a Vercel, sem gateway.
 O projeto usa `apps/console` como diretório raiz, e `apps/console/vercel.json`
