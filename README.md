@@ -47,7 +47,7 @@ pnpm dev
 ```
 
 O gateway sobe em `:8402` na frente da API de exemplo em `:8787`. O console sobe
-em `:4179`. A cota gratuita está em [awall.yaml](awall.yaml). Sem `DATABASE_URL`
+em `:4179` e a landing page do projeto em `:4180`. A cota gratuita está em [awall.yaml](awall.yaml). Sem `DATABASE_URL`
 o gateway usa um Postgres embutido, que some quando o processo sai.
 
 Chave de demonstração: qualquer valor em `x-api-key` (o exemplo usa `demo`).
