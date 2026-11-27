@@ -21,10 +21,11 @@ Then, on `http://localhost`:
 | --- | --- |
 | protected API | `curl -H "Authorization: Bearer k" "http://localhost/v1/search?q=x"` answers `200`, and `402` once the free quota is gone |
 | control plane | `curl http://localhost/awall/stats/summary` answers `401`; with `Authorization: Bearer local-token` it answers `200` |
+| console | `http://localhost/` serves the dashboard |
 | checkout | `http://localhost/pay/<offerId>` serves the console |
 | persistence | an offer read with `GET /awall/offers/<id>` still answers `202` after `docker compose restart gateway` |
 
-Those four were run on this stack before this file was written. The gateway
+Those were run on this stack before this file was written. The gateway
 logs `"database":"postgres"` and `"origin":"http://origin:8787"` at boot, which
 is how you know it is not on PGlite and not pointed at the policy file's
 localhost.
