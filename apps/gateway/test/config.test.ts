@@ -43,6 +43,23 @@ describe("readConfig on testnet", () => {
     expect(config.xlmAsset).toBe(STELLAR_TESTNET_XLM);
   });
 
+  it("falls back when Compose passes the variable through as empty", () => {
+    // `${STELLAR_ASSET:-}` defines the variable in the container as "" when it
+    // is not exported on the host, so the fallback has to cover blank, not
+    // only unset. Before this, the exact rail advertised an empty asset.
+    const config = readConfig({
+      STELLAR_NETWORK: "stellar:testnet",
+      STELLAR_ASSET: "",
+      X402_FACILITATOR_URL: "",
+    });
+    expect(config.asset).toBe(STELLAR_TESTNET_USDC);
+    expect(config.facilitatorUrl).toBe("https://www.x402.org/facilitator");
+  });
+
+  it("falls back on a value that is only whitespace", () => {
+    expect(readConfig({ STELLAR_ASSET: "   " }).asset).toBe(STELLAR_TESTNET_USDC);
+  });
+
   it("still lets the environment override each value", () => {
     const config = readConfig({
       STELLAR_NETWORK: "stellar:testnet",

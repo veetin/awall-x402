@@ -54,10 +54,12 @@ export class GatewayConfigError extends Error {
 /**
  * Reader for variables whose fallback value only makes sense on testnet.
  *
- * On testnet it keeps the plain `??` fallback, so the demo still runs with no
- * configuration. On pubnet a blank or absent value is collected instead of
- * defaulted, and `assert` turns the whole set into one startup failure that
- * names every variable at once.
+ * On testnet it falls back, so the demo still runs with no configuration. A
+ * blank value counts as no configuration on both networks: Compose defines an
+ * unexported variable as an empty string rather than leaving it unset, so a
+ * `??` fallback would never fire under Compose. On pubnet a blank or absent
+ * value is collected instead of defaulted, and `assert` turns the whole set
+ * into one startup failure that names every variable at once.
  *
  * @param env - Environment being read.
  * @param network - Value of `STELLAR_NETWORK`.
@@ -75,8 +77,9 @@ function networkDefaults(
   return {
     read(name: string, testnetDefault: string, hint: string): string {
       const value = env[name];
-      if (!isPubnet) return value ?? testnetDefault;
-      if (value !== undefined && value.trim().length > 0) return value;
+      const configured = value !== undefined && value.trim().length > 0;
+      if (!isPubnet) return configured ? value : testnetDefault;
+      if (configured) return value;
       missing.push({ name, hint });
       return "";
     },
