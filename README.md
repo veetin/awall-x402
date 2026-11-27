@@ -47,7 +47,7 @@ pnpm dev
 ```
 
 O gateway sobe em `:8402` na frente da API de exemplo em `:8787`. O console sobe
-em `:4179` (com a landing do projeto em `/landing`) e a documentação técnica em
+em `:4179/console/` (a landing do projeto abre em `:4179/`) e a documentação técnica em
 `:4180`, também acessível em `:4179/documentacao/`. A cota gratuita está em [awall.yaml](awall.yaml). Sem `DATABASE_URL`
 o gateway usa um Postgres embutido, que some quando o processo sai.
 
@@ -65,7 +65,7 @@ inteiro também roda de uma vez:
 ./scripts/demo.sh
 ```
 
-O console do operador entra com usuário e senha em `http://localhost:4179/login`.
+O console do operador entra com usuário e senha em `http://localhost:4179/console/login`.
 O primeiro usuário vem de um script, que lê a senha da entrada padrão:
 
 ```
@@ -77,7 +77,7 @@ embutido some com o processo, e o usuário criado nele iria embora junto.
 
 `AWALL_ADMIN_TOKEN` continua valendo em `Authorization: Bearer` para chamada de
 linha de comando — é o que [scripts/demo.sh](scripts/demo.sh) usa. O checkout
-público de uma offer é `http://localhost:4179/pay/<offerId>`.
+público de uma offer é `http://localhost:4179/console/pay/<offerId>`.
 
 ## Stack de deploy
 

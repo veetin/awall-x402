@@ -10,9 +10,9 @@ mais a documentação técnica (outro app, servido pelo mesmo build):
 
 | Área | Rota | Autenticação | Para quem |
 | --- | --- | --- | --- |
-| Console | `/` e abas | sessão (usuário e senha) | quem opera a API protegida |
+| Console | `/console/` em dev, `/` no build e no Docker, e abas | sessão (usuário e senha) | quem opera a API protegida |
 | Checkout | `/pay/:offerId` | nenhuma | a pessoa que vai pagar por Pix ou cripto, vinda do `extra.checkoutUrl` do 402 |
-| Landing | `/landing` (`/` na Vercel) | nenhuma | quem chega ao projeto e ainda não sabe o que ele faz |
+| Landing | `/` em dev e na Vercel, e `/landing` | nenhuma | quem chega ao projeto e ainda não sabe o que ele faz |
 | Documentação técnica | `/documentacao/` | nenhuma | quem quer o detalhe de trilhos, arquitetura, preço e como rodar |
 
 No checkout, o botão "Pagar com a carteira" abre um campo para colar o `PAYMENT-SIGNATURE`

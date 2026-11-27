@@ -141,13 +141,13 @@ describe("readConfig on pubnet", () => {
 });
 
 describe("readConfig and the checkout base URL", () => {
-  it("defaults to the console's own port", () => {
-    expect(readConfig({}).checkoutBaseUrl).toBe("http://localhost:4179");
+  it("defaults to the console under its development path", () => {
+    expect(readConfig({}).checkoutBaseUrl).toBe("http://localhost:4179/console");
   });
 
   it("treats an empty value as absent, the way Compose passes it", () => {
     expect(readConfig({ AWALL_CHECKOUT_BASE_URL: "" }).checkoutBaseUrl).toBe(
-      "http://localhost:4179",
+      "http://localhost:4179/console",
     );
   });
 

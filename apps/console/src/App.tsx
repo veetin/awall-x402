@@ -30,8 +30,15 @@ type Tab = (typeof TABS)[number][0] | "identity" | "pay" | "login";
 
 type Location = { tab: Tab; offerId?: string; identityId?: string };
 
+/** Prefix the console is served under: `/console` in development, empty at the root. */
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 function readLocation(): Location {
-  const path = window.location.pathname.replace(/\/$/, "") || "/";
+  let pathname = window.location.pathname;
+  if (BASE && (pathname === BASE || pathname.startsWith(`${BASE}/`))) {
+    pathname = pathname.slice(BASE.length);
+  }
+  const path = pathname.replace(/\/$/, "") || "/";
   const pay = /^\/pay\/([^/]+)$/.exec(path);
   if (pay?.[1]) return { tab: "pay", offerId: decodeURIComponent(pay[1]) };
   if (path === "/login") return { tab: "login" };
@@ -43,7 +50,7 @@ function readLocation(): Location {
 }
 
 function go(path: string): void {
-  window.history.pushState(null, "", path);
+  window.history.pushState(null, "", `${BASE}${path}`);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 

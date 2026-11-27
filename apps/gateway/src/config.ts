@@ -233,7 +233,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     payTo,
     facilitatorUrl,
     facilitatorTimeoutMs: Number(env["X402_FACILITATOR_TIMEOUT_MS"] ?? 10_000),
-    checkoutBaseUrl: baseUrl(env["AWALL_CHECKOUT_BASE_URL"], "http://localhost:4179"),
+    checkoutBaseUrl: baseUrl(env["AWALL_CHECKOUT_BASE_URL"], "http://localhost:4179/console"),
     publicBaseUrl: env["AWALL_PUBLIC_BASE_URL"] ?? `http://localhost:${port}`,
     trustProxy: env["AWALL_TRUST_PROXY"] === "1",
     databaseUrl: env["DATABASE_URL"] ?? "",
