@@ -45,7 +45,12 @@ arquivo e nos textos da página, e precisam acompanhar o `awall.yaml` à mão. A
 landing não chama o gateway. O único dado de execução real é a liquidação
 linkada no fechamento (`1193d51b…`, na testnet).
 
-O fundo é estático: preto com linhas de varredura e vinheta, sem animação. Os
+O fundo é preto com linhas de varredura e vinheta, e a luz é do visitante: um
+foco que segue o ponteiro (com atraso suave) acende as linhas de varredura
+logo abaixo dele, e pontos de luz fixos nos cantos dão algo para o vidro dos
+cartões desfocar. Nada se move sozinho. Os painéis (`.glass.lit`) são vidro
+com desfoque e uma poça de luz e borda iluminada sob o ponteiro, e sem
+ponteiro (toque ou `prefers-reduced-motion`) o foco fica parado no topo. Os
 botões de ação seguem o padrão em pílula do console (metal claro para o
 primário, vidro para o secundário). Com `prefers-reduced-motion` as cenas viram
 quadros parados, e o hero só anda quando o visitante pede.
