@@ -143,11 +143,11 @@ comportamento, não na precisão estatística do escore.
 
 Emite os termos de pagamento e processa a liquidação dos dois trilhos.
 
-- **Trilho M2M (`exact` em Stellar)**: monta o objeto `PaymentRequired`, valida o
+- **Trilho M2M (`exact` em redes cripto)**: monta o objeto `PaymentRequired`, valida o
   `PAYMENT-SIGNATURE` recebido contra a própria política (nunca contra o que o
   cliente alega), chama `/verify` e `/settle` do facilitator e credita o pacote de
   créditos no ledger. O facilitator patrocina a taxa da transação, então o agente só
-  precisa ter USDC — não precisa de XLM para gas.
+  precisa ter USDC — não precisa de moeda nativa para gas.
 - **Trilho Pix**: cria uma *offer* no banco, gera a cobrança na AbacatePay,
   devolve `extra.checkoutUrl` dentro do 402, e credita o pacote quando o webhook
   confirma o pagamento.
@@ -236,7 +236,7 @@ viável.
 awall-x402/
 ├── apps/
 │   ├── gateway/          Hono — proxy, política, ledger, orquestração de pagamento
-│   ├── console/          Vite + React — dashboard do operador e página de checkout
+│   ├── console/          Vite + React — dashboard do operador, checkout e landing (/landing)
 │   ├── landing/          Vite + React — landing page pública bilíngue do projeto
 │   ├── origin-demo/      API protegida de exemplo (catálogo + rota medida)
 │   └── agent-m2m/        agente autônomo com carteira, usa @x402/fetch

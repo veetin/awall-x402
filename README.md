@@ -10,7 +10,7 @@ protocolo x402, e o agente volta a ser atendido assim que paga.
 
 O gateway atende dois perfis de cliente com a mesma resposta 402:
 
-- **Agente autônomo (M2M)**: paga sozinho, em **USDC ou XLM** na Stellar,
+- **Agente autônomo (M2M)**: paga sozinho, em **USDC ou moeda nativa** em redes cripto,
   assinando a autorização x402 e repetindo a requisição. A taxa da transação é
   patrocinada pelo facilitator, então o agente não precisa manter token de gas.
   Nenhum humano envolvido.
@@ -98,7 +98,7 @@ conta de infraestrutura. Quando existir, a URL entra aqui.
 
 Todo número abaixo vem de execução neste repositório. Nada aqui é estimativa.
 
-**Uma liquidação confirmada na testnet Stellar**, pelo trilho XLM, sem humano no
+**Uma liquidação confirmada na testnet Stellar**, pelo trilho de moeda nativa, sem humano no
 circuito depois do setup:
 
 - transação `1193d51bc83e0831e775b3f7fd13049f21f1868364008e905540be56375a048d`
@@ -136,7 +136,7 @@ reporta — o segundo relatório da mesma reserva responde `404`.
 - **Vídeo de três minutos**: roteiro em
   [docs/06-demo-e-pitch.md](docs/06-demo-e-pitch.md).
 - **USDC de testnet**: o faucet da Circle pede reCAPTCHA, então nenhum saldo de
-  USDC foi obtido aqui. Não bloqueia nada: o trilho XLM liquida de verdade, e o
+  USDC foi obtido aqui. Não bloqueia nada: o trilho de moeda nativa liquida de verdade, e o
   402 oferece os dois ativos.
 
 ## Licença

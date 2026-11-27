@@ -23,7 +23,7 @@ Mesmo agente, agora atrás do AWall. Ele toma `402`. Mostrar o header
 escolhe o item em USDC, assina as auth entries da invocação Soroban e repete a
 requisição. Mostrar o `200` com o header `PAYMENT-RESPONSE` e o hash da transação
 aberto no stellar.expert. Falar o tempo decorrido e um detalhe que júri técnico
-pega: a carteira do agente não tem XLM nenhum — a taxa é patrocinada pelo
+pega: a carteira do agente não tem moeda nativa nenhuma — a taxa é patrocinada pelo
 facilitator, o agente só carrega stablecoin. Nenhum humano tocou em nada.
 
 **1:10–2:00 — Agente assistido paga por Pix.**
@@ -60,7 +60,7 @@ capacidade de API como mercado, não como muro.
 > recebe os termos de pagamento do protocolo x402 e segue trabalhando depois de
 > pagar. Agentes autônomos pagam sozinhos em stablecoin; agentes com humano no
 > circuito pagam por Pix, na mesma resposta 402. A liquidação em cripto roda em
-> Stellar, com USDC e taxa patrocinada, então o agente não precisa de token de gas.
+> uma rede cripto (Stellar, na demo), com USDC e taxa patrocinada, então o agente não precisa de token de gas.
 > O preço reage ao comportamento:
 > tráfego abusivo paga mais. O resultado é que o excedente de tráfego, que hoje é
 > só custo de infraestrutura descartado, passa a ser receita atribuível.

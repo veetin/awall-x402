@@ -15,7 +15,7 @@ Quem consome a API.
 | `id` | text PK | `idt_` + nanoid |
 | `kind` | text | `api_key` \| `wallet` \| `signed_agent` \| `fingerprint` |
 | `api_key_hash` | text null | SHA-256 da chave; nunca a chave |
-| `wallet` | text null | endereço Stellar, quando conhecido: `G…`/`C…` (56 chars) ou `M…` muxed (69) |
+| `wallet` | text null | endereço da carteira na rede, quando conhecido. Na Stellar: `G…`/`C…` (56 chars) ou `M…` muxed (69) |
 | `fingerprint` | text null | hash de IP + ASN + User-Agent |
 | `abuse_score` | real | 0..1, média móvel exponencial |
 | `credit_balance` | bigint | saldo materializado, atualizado só com lançamento |
@@ -89,7 +89,7 @@ Liquidação efetiva, de qualquer trilho.
 | `asset` | text | |
 | `network` | text | |
 | `idempotency_key` | text UNIQUE | hash da transação on-chain, ou `pix:<chargeId>` |
-| `tx_hash` | text null | hash Stellar em hex de 64 caracteres |
+| `tx_hash` | text null | hash da transação na rede, em hex de 64 caracteres na Stellar |
 | `payer` | text null | endereço pagador, quando houver (vazio no trilho Pix, por decisão do scheme) |
 | `settle_response` | jsonb null | `SettlementResponse` bruto, para auditoria |
 | `status` | text | `settled` \| `failed` \| `pending` |
