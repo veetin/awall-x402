@@ -38,6 +38,11 @@ Duas coisas, nesta ordem de prioridade:
 
 ## Telas
 
+### Login
+
+`/login`: usuário e senha. Enquanto não há sessão, as telas do dashboard
+mandam para cá. É a única tela do console que não exige autenticação.
+
 ### Ao vivo
 
 Fluxo de requisições em tempo real, via SSE. Uma linha por requisição:
@@ -101,6 +106,9 @@ Endpoints de leitura do console, todos sob o prefixo de controle:
 
 | Método e rota | Resposta |
 | --- | --- |
+| `POST /awall/auth/login` | sem autenticação: recebe `username` e `password`, devolve cookie de sessão |
+| `POST /awall/auth/logout` | revoga a sessão atual e limpa o cookie |
+| `GET /awall/auth/me` | o usuário da sessão, ou `{"auth":"bearer","user":null}` |
 | `POST /awall/stats/stream-ticket` | ticket de uso único para abrir o SSE |
 | `GET /awall/stats/stream?ticket=` | SSE com um evento por requisição e por pagamento |
 | `GET /awall/stats/summary?window=1h` | contadores, receita por trilho, requisições recuperadas |
@@ -111,6 +119,61 @@ Endpoints de leitura do console, todos sob o prefixo de controle:
 | `GET /awall/policy` | política efetiva, com a origem de cada valor (YAML ou override) |
 | `GET /awall/health/checks` | resultado das checagens da tela Saúde |
 | `PUT /awall/policy` | **fase 2**: aplica uma nova versão da política |
+
+### Login de console: sessão em cookie
+
+`POST /awall/auth/login` recebe `username` e `password` em JSON e devolve um
+cookie `awall_session`, `HttpOnly`, `SameSite=Strict`, e `Secure` quando a
+requisição chega por HTTPS — direto, ou com `X-Forwarded-Proto: https` posto
+pela borda. O token da sessão existe no cookie e em nenhum outro lugar: o banco
+guarda só o SHA-256 (ver `docs/04-modelo-dados.md`). A sessão dura 12 horas
+(`SESSION_TTL_MS`).
+
+Credencial errada devolve `401` com `{"error":"invalid_credentials"}`, e é a
+**mesma** resposta para usuário inexistente, senha errada e usuário
+desabilitado: mesmo corpo, mesmo status e mesmo custo, porque o argon2id roda
+também quando o usuário não existe. Sem isso, o tempo de resposta diria quais
+usuários existem. Corpo que não é um par de strings devolve `400`
+(`invalid_body`): é erro de cliente, não credencial recusada.
+
+Senha não entra em log, em mensagem de erro nem em URL. O log de uma tentativa
+recusada não traz nem o `username`, porque um log de recusas enumeraria os
+usuários do mesmo jeito.
+
+`POST /awall/auth/logout` preenche `revoked_at` e limpa o cookie; chamado com
+bearer, devolve `401` (`no_session`), porque não há sessão para encerrar.
+
+### Sessão ou bearer, nessa ordem
+
+O middleware de autorização aceita **sessão ou** `AWALL_ADMIN_TOKEN`, nessa
+ordem. A sessão vem primeiro porque nomeia uma pessoa. O bearer continua
+valendo: `scripts/demo.sh` e os exemplos de `deploy/README.md` dependem dele, e
+quebrá-los custaria mais do que a mudança vale. Depreciar o token é assunto de
+issue própria.
+
+O log de auditoria passa a gravar o usuário da sessão. `X-AWall-Actor` só é
+lido quando não há sessão, isto é, no caminho do bearer — o header é escolhido
+pelo cliente e nunca foi verificado por ninguém.
+
+### Primeiro usuário
+
+Sem usuário cadastrado ninguém entra pela tela de login. O primeiro vem de
+`pnpm --filter @awall/gateway create-user`, que lê a senha da entrada padrão e
+nunca de argumento de linha de comando: argumento vai para o histórico do shell
+e aparece na lista de processos.
+
+Revogar acesso é preencher `disabled_at` no usuário, o que também mata as
+sessões vivas dele. Não existe tela para isso ainda.
+
+### Cookie e origem
+
+`SameSite=Strict` quer dizer que o cookie só viaja em requisição do mesmo site.
+No `docker compose`, o Caddy serve console e gateway no mesmo host, então isso
+já vale. Em desenvolvimento, o console chama o gateway pelo proxy do Vite, no
+mesmo origin de `pnpm --filter @awall/console dev`; `VITE_AWALL_URL` continua
+existindo para apontar o console para outro host. O CORS do plano de controle
+responde `Access-Control-Allow-Credentials: true` e devolve a origem exata da
+allowlist, nunca `*`.
 
 ### Token de admin: só no header
 
@@ -176,9 +239,15 @@ Formato do evento SSE (estável, porque o console depende dele):
 
 ## Autenticação e exposição
 
+- Quem opera entra com usuário e senha na tela `/login`. O gateway devolve um
+  cookie de sessão; o detalhe está em *Login de console: sessão em cookie*.
+  Sem sessão e sem token, os endpoints do console respondem `401` — inclusive
+  os de leitura, porque eles expõem consumo por cliente.
 - Token de administrador em `AWALL_ADMIN_TOKEN`, enviado como
-  `Authorization: Bearer`. Sem token, os endpoints do console respondem `401` —
-  inclusive os de leitura, porque eles expõem consumo por cliente.
+  `Authorization: Bearer`, continua valendo para chamada de linha de comando.
+  O middleware tenta a sessão primeiro e o token depois.
+- O campo de token saiu da interface. O console não guarda mais segredo em
+  `sessionStorage`: o cookie é `HttpOnly` e o JavaScript da página não o lê.
 - `GET /awall/offers/:id` continua público: é o endpoint que o agente e a página
   de checkout consultam. Ele devolve só status e créditos creditados, nunca dados
   da identidade.

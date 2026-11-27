@@ -58,14 +58,23 @@ th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line
 th { color: var(--muted); font-weight: 500; }
 code, .mono { font-family: var(--mono); font-size: 12px; }
 
-.token { display: flex; gap: 8px; margin: 16px 0 24px; }
-.token input, textarea, select {
+.token { display: flex; gap: 8px; margin: 16px 0 24px; align-items: center; }
+.token input, textarea, select, .login input {
   background: #100e0c;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 8px 10px;
 }
 .token input { flex: 1; }
+.token span { color: var(--muted); font-size: 13px; margin-right: auto; }
+
+.login { max-width: 360px; margin: 72px auto; padding: 0 20px; }
+.login .panel { display: flex; flex-direction: column; gap: 6px; }
+.login .mark { margin-bottom: 4px; }
+.login label { color: var(--muted); font-size: 13px; margin-top: 8px; }
+.login .primary { margin-top: 16px; padding: 10px; }
+.login .primary:disabled { opacity: 0.5; cursor: default; }
+.hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin-bottom: 0; }
 .primary { background: var(--copper); color: #1a120b; border-color: var(--copper); }
 .filters { display: flex; gap: 8px; margin-bottom: 12px; }
 .banner { padding: 12px 14px; border-radius: 10px; background: #2a2218; border: 1px solid var(--line); }

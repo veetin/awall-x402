@@ -219,6 +219,51 @@ export const adminAudit = pgTable("admin_audit", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * A person who signs in to the operator console.
+ *
+ * The password follows the rule the API key already follows: only the hash is
+ * persisted. `disabled_at` revokes access without deleting the row, so the
+ * audit trail keeps pointing at a username that still resolves.
+ */
+export const consoleUsers = pgTable("console_users", {
+  /** `usr_` + nanoid. */
+  id: text("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  /** argon2id, in PHC string format. Never the password itself. */
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Null until the first successful sign-in. */
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  /** Null while the user may sign in. Set to revoke, never to delete. */
+  disabledAt: timestamp("disabled_at", { withTimezone: true }),
+});
+
+/**
+ * One row per console sign-in.
+ *
+ * Only the SHA-256 of the session token is stored, the same way `identities`
+ * keeps the API key: a dump of this table hands over no live session. The
+ * clear value exists in the `HttpOnly` cookie and nowhere else.
+ */
+export const consoleSessions = pgTable(
+  "console_sessions",
+  {
+    /** `ses_` + nanoid. */
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => consoleUsers.id),
+    /** SHA-256 of the session token, hex. Unique, so a digest maps to one row. */
+    tokenHash: text("token_hash").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    /** Null while the session is valid. Set on logout. */
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [index("console_sessions_user_id_idx").on(table.userId, table.createdAt.desc())],
+);
+
 export const schema = {
   identities,
   usageEvents,
@@ -228,6 +273,8 @@ export const schema = {
   usageRollups,
   policyVersions,
   adminAudit,
+  consoleUsers,
+  consoleSessions,
 };
 
 export type Identity = typeof identities.$inferSelect;
@@ -238,3 +285,5 @@ export type CreditLedgerEntry = typeof creditLedger.$inferSelect;
 export type UsageRollup = typeof usageRollups.$inferSelect;
 export type PolicyVersion = typeof policyVersions.$inferSelect;
 export type AdminAuditEntry = typeof adminAudit.$inferSelect;
+export type ConsoleUser = typeof consoleUsers.$inferSelect;
+export type ConsoleSession = typeof consoleSessions.$inferSelect;

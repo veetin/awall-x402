@@ -12,6 +12,9 @@
 	handle /pay/* {
 		reverse_proxy console:4179
 	}
+	handle /login {
+		reverse_proxy console:4179
+	}
 	handle /live* {
 		reverse_proxy console:4179
 	}

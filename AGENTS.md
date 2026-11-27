@@ -84,7 +84,7 @@ Detalhes que causam falha silenciosa:
 
 ## Stack e dependências
 
-- TypeScript estrito, Node 22, pnpm workspaces.
+- TypeScript estrito, Node 24, pnpm workspaces.
 - Gateway: Hono + `@x402/hono`.
 - Stellar: `@x402/stellar` (2.28.0) + `@stellar/stellar-sdk` (^16.3.0).
 - Cliente de demonstração: `@x402/fetch`.

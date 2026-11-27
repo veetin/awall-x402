@@ -13,7 +13,7 @@ que mais causa falha silenciosa no trilho Stellar.
 
 ## Pré-requisitos
 
-- Node 22+ e `pnpm` (`corepack enable pnpm`).
+- Node 24+ e `pnpm` (`corepack enable pnpm`).
 - `pnpm install` na raiz do monorepo.
 - Gateway e origin de exemplo rodando: `pnpm dev` na raiz (`:8402` e `:8787`).
 

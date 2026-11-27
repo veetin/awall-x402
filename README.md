@@ -64,9 +64,19 @@ inteiro também roda de uma vez:
 ./scripts/demo.sh
 ```
 
-O console do operador lê o plano de controle. Defina `AWALL_ADMIN_TOKEN` antes
-de subir o gateway e use o mesmo valor na tela. O checkout público de uma offer
-é `http://localhost:4179/pay/<offerId>`.
+O console do operador entra com usuário e senha em `http://localhost:4179/login`.
+O primeiro usuário vem de um script, que lê a senha da entrada padrão:
+
+```
+DATABASE_URL=postgres://... pnpm --filter @awall/gateway create-user ada
+```
+
+O login precisa de um Postgres que persista: sem `DATABASE_URL` o banco
+embutido some com o processo, e o usuário criado nele iria embora junto.
+
+`AWALL_ADMIN_TOKEN` continua valendo em `Authorization: Bearer` para chamada de
+linha de comando — é o que [scripts/demo.sh](scripts/demo.sh) usa. O checkout
+público de uma offer é `http://localhost:4179/pay/<offerId>`.
 
 ## Stack de deploy
 

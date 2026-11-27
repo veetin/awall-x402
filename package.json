@@ -4,7 +4,7 @@
   "type": "module",
   "packageManager": "pnpm@12.21.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "pnpm -r --parallel dev",
@@ -16,6 +16,6 @@
     "typescript": "^5.6.0",
     "tsx": "^4.19.0",
     "vitest": "^2.1.0",
-    "@types/node": "^22.7.0"
+    "@types/node": "^24.9.0"
   }
 }

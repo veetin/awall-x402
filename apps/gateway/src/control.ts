@@ -1,7 +1,8 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { streamSSE } from "hono/streaming";
 import { cors } from "hono/cors";
-import type { Hono } from "hono";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import type { Context, Hono } from "hono";
 import {
   getIdentity,
   listAdminAudit,
@@ -19,6 +20,8 @@ import {
   summarizeRevenue,
   summarizeUsage,
   writeAdminAudit,
+  revokeConsoleSession,
+  type ConsoleSessionActor,
   type Database,
 } from "@awall/ledger";
 import {
@@ -31,6 +34,14 @@ import {
 import { checkStellarExactSupport, type FacilitatorClient } from "@awall/settlement";
 import type { AbacatePayClient } from "@awall/pix";
 import type { GatewayConfig } from "./config.js";
+import {
+  MAX_PASSWORD_BYTES,
+  MAX_USERNAME_LENGTH,
+  SESSION_COOKIE,
+  SESSION_TTL_MS,
+  login as signIn,
+  resolveSession,
+} from "./auth.js";
 import { log } from "./log.js";
 
 export type LiveEvent =
@@ -55,6 +66,19 @@ export type LiveEvent =
       creditedCredits: number;
       transaction: string;
     };
+
+/**
+ * Request-scoped values the control plane sets.
+ *
+ * The session is resolved once, by the authorization middleware, and read
+ * again by the audit trail: an administrative action is attributed to the
+ * person who signed in, not to a header the caller chose.
+ */
+export type ControlEnv = {
+  Variables: {
+    consoleSession: ConsoleSessionActor | undefined;
+  };
+};
 
 export type PolicyHolder = {
   current(): Policy;
@@ -226,13 +250,14 @@ type ControlDeps = {
 /**
  * Mount the operator API.
  *
- * Every route here requires `AWALL_ADMIN_TOKEN`. The public offer status and
- * the Pix webhook are mounted separately and stay unauthenticated.
+ * Every route here takes a console session or `AWALL_ADMIN_TOKEN`, in that
+ * order. `POST /awall/auth/login`, the public offer status and the Pix webhook
+ * are mounted separately and stay unauthenticated.
  *
  * @param app - Hono application.
  * @param deps - Ledger, policy and the live event bus.
  */
-export function mountControl(app: Hono, deps: ControlDeps): void {
+export function mountControl(app: Hono<ControlEnv>, deps: ControlDeps): void {
   const prefix = deps.config.controlPrefix;
   const streamPath = `${prefix}/stats/stream`;
   const tickets = new StreamTicketStore();
@@ -246,6 +271,10 @@ export function mountControl(app: Hono, deps: ControlDeps): void {
       },
       allowHeaders: ["Authorization", "Content-Type", "X-AWall-Actor"],
       allowMethods: ["GET", "POST", "PUT", "OPTIONS"],
+      // The console sends its session cookie, so the browser needs an exact
+      // origin echoed back and this header. The origin callback above never
+      // answers `*`, which is what makes that legal.
+      credentials: true,
       maxAge: 600,
     }),
   );
@@ -254,6 +283,14 @@ export function mountControl(app: Hono, deps: ControlDeps): void {
     const path = new URL(c.req.url).pathname;
     if (c.req.method === "OPTIONS") return next();
     if (isPublicControl(path, prefix, c.req.method)) return next();
+    // A session comes first, because it names a person and the audit trail
+    // wants that name. The bearer token stays as the fallback: scripts/demo.sh
+    // and the examples in deploy/README.md are built on it.
+    const session = await resolveSession(deps.db, getCookie(c, SESSION_COOKIE));
+    if (session) {
+      c.set("consoleSession", session);
+      return next();
+    }
     if (authorized(c.req.raw.headers, deps.config.adminToken)) return next();
     // Only the stream takes a ticket, and only a ticket: the admin token never
     // travels in a query string, because a query string is logged everywhere.
@@ -261,10 +298,52 @@ export function mountControl(app: Hono, deps: ControlDeps): void {
     return c.json({ error: "unauthorized" }, 401);
   });
 
+  app.post(`${prefix}/auth/login`, async (c) => {
+    const credentials = await readLoginBody(c);
+    if (!credentials) return c.json({ error: "invalid_body" }, 400);
+    const result = await signIn(deps.db, credentials);
+    if (!result.ok) {
+      // One message, one status, one cost, whether the username exists or the
+      // password is wrong. The username stays out of the log too: a log of
+      // refused attempts would enumerate the users just as well.
+      log({ msg: "console login refused" });
+      return c.json({ error: "invalid_credentials" }, 401);
+    }
+    setCookie(c, SESSION_COOKIE, result.token, {
+      httpOnly: true,
+      sameSite: "Strict",
+      secure: isHttps(c),
+      path: "/",
+      maxAge: Math.floor(SESSION_TTL_MS / 1000),
+    });
+    log({ msg: "console login", actor: result.user.username });
+    return c.json({ user: result.user, expiresAt: result.expiresAt.toISOString() });
+  });
+
+  app.post(`${prefix}/auth/logout`, async (c) => {
+    const session = c.get("consoleSession");
+    // Reached with the bearer token: there is no session to end.
+    if (!session) return c.json({ error: "no_session" }, 401);
+    await revokeConsoleSession(deps.db, session.sessionId);
+    deleteCookie(c, SESSION_COOKIE, { path: "/" });
+    log({ msg: "console logout", actor: session.username });
+    return c.json({ ok: true });
+  });
+
+  app.get(`${prefix}/auth/me`, (c) => {
+    const session = c.get("consoleSession");
+    if (!session) return c.json({ auth: "bearer", user: null });
+    return c.json({
+      auth: "session",
+      user: { id: session.userId, username: session.username },
+      expiresAt: session.expiresAt.toISOString(),
+    });
+  });
+
   app.post(`${prefix}/stats/stream-ticket`, (c) => {
     const minted = tickets.issue();
     // The ticket itself is never logged, here or anywhere else.
-    log({ msg: "stream ticket issued", actor: actorOf(c.req.raw.headers) });
+    log({ msg: "stream ticket issued", actor: actorOf(c) });
     return c.json({ ticket: minted.ticket, expiresInMs: minted.expiresInMs });
   });
 
@@ -343,7 +422,7 @@ export function mountControl(app: Hono, deps: ControlDeps): void {
     const deleted = await purgeUsageEvents(deps.db, olderThan);
     await writeAdminAudit(deps.db, {
       action: "purge_usage_events",
-      actor: actorOf(c.req.raw.headers),
+      actor: actorOf(c),
       payload: { olderThan: olderThan.toISOString(), deleted },
       result: "ok",
     });
@@ -431,7 +510,7 @@ export function mountControl(app: Hono, deps: ControlDeps): void {
     if (!parsed.success) {
       return c.json({ error: "invalid_policy", issues: parsed.error.issues }, 400);
     }
-    const actor = actorOf(c.req.raw.headers);
+    const actor = actorOf(c);
     const contentHash = createHash("sha256").update(JSON.stringify(parsed.data)).digest("hex");
     const version = await savePolicyVersion(deps.db, {
       content: parsed.data,
@@ -523,6 +602,8 @@ function assetCode(row: { rail: string; asset: string }, config: GatewayConfig):
 }
 
 function isPublicControl(path: string, prefix: string, method: string): boolean {
+  // Signing in cannot require being signed in.
+  if (path === `${prefix}/auth/login` && method === "POST") return true;
   if (path === `${prefix}/offers` || path.startsWith(`${prefix}/offers/`)) return true;
   if (path === `${prefix}/webhooks/abacatepay`) return true;
   // Envoy ext_authz calls the decision route with the original path appended,
@@ -555,8 +636,60 @@ function authorized(headers: Headers, expected: string): boolean {
   return timingSafeEqual(left, right);
 }
 
-function actorOf(headers: Headers): string {
-  return headers.get("x-awall-actor")?.slice(0, 120) || "admin";
+/**
+ * Who to name in the audit trail.
+ *
+ * A session wins over `X-AWall-Actor`, because the session is the only one of
+ * the two that was proved. The header remains for the bearer token, which
+ * names nobody on its own.
+ *
+ * @param c - Request context, after the authorization middleware ran.
+ * @returns The actor to record.
+ */
+function actorOf(c: Context<ControlEnv>): string {
+  const session = c.get("consoleSession");
+  if (session) return session.username;
+  return c.req.header("x-awall-actor")?.slice(0, MAX_USERNAME_LENGTH) || "admin";
+}
+
+/**
+ * Whether the request reached us over HTTPS, so the cookie can be `Secure`.
+ *
+ * Behind an edge proxy the gateway is addressed over plain HTTP, and
+ * `X-Forwarded-Proto` is what carries the original scheme. Believing that
+ * header can only add `Secure`, never remove it: a direct HTTPS request is
+ * already HTTPS in the URL, so a forged `http` value changes nothing.
+ *
+ * @param c - Request context.
+ * @returns Whether to mark the cookie `Secure`.
+ */
+function isHttps(c: Context<ControlEnv>): boolean {
+  if (new URL(c.req.url).protocol === "https:") return true;
+  return c.req.header("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase() === "https";
+}
+
+/** Credentials as the login endpoint accepts them. */
+type LoginBody = { username: string; password: string };
+
+/**
+ * Read and check the shape of a login body.
+ *
+ * Neither field is logged, here or anywhere downstream. A body that is not
+ * two strings is a client bug, not a failed credential, and answers 400.
+ *
+ * @param c - Request context.
+ * @returns The credentials, or `null` when the body is not a login body.
+ */
+async function readLoginBody(c: Context<ControlEnv>): Promise<LoginBody | null> {
+  const parsed: unknown = await c.req.json().catch(() => null);
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const username: unknown = Reflect.get(parsed, "username");
+  const password: unknown = Reflect.get(parsed, "password");
+  if (typeof username !== "string" || typeof password !== "string") return null;
+  const trimmed = username.trim();
+  if (!trimmed || trimmed.length > MAX_USERNAME_LENGTH) return null;
+  if (!password || Buffer.byteLength(password, "utf8") > MAX_PASSWORD_BYTES) return null;
+  return { username: trimmed, password };
 }
 
 function windowStart(window: string): Date {
