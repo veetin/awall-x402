@@ -56,9 +56,13 @@ function trailingSlashRedirects(): Plugin {
  * landing page, and the operator console lives under `/console/`. The build
  * and `vite preview` keep the console at the root, which is how the Docker
  * stack and Caddy serve it.
+ *
+ * Root-level files that public pages link to (the favicon) are mapped the
+ * same way, because Vite serves `public/` only under `base` in development.
  */
 function landingAtRoot(): Plugin {
   const landing = new Set(["/", "/landing"]);
+  const rootFiles = new Set(["/favicon.svg"]);
   return {
     name: "landing-at-root",
     apply: "serve",
@@ -66,6 +70,7 @@ function landingAtRoot(): Plugin {
       server.middlewares.use((req: IncomingMessage, _res: ServerResponse, next: () => void) => {
         const [path = "/", query = ""] = (req.url ?? "/").split(/(?=\?)/);
         if (landing.has(path)) req.url = `${CONSOLE_BASE}/landing.html${query}`;
+        else if (rootFiles.has(path)) req.url = `${CONSOLE_BASE}${path}${query}`;
         next();
       });
     },
