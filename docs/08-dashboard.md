@@ -27,13 +27,22 @@ contexto é seguro e cai num `textarea` escondido com `execCommand` quando não 
 porque um checkout aberto por HTTP no celular não tem contexto seguro.
 
 A landing é uma segunda entrada do mesmo build (`landing.html`), em TypeScript
-sem React, para carregar leve, com CSS próprio (`src/landing/landing.css`). O
-scroll é livre. A página tem: o hero, com uma simulação que o visitante comanda
-(enviar requisição, estourar a cota, pagar por Stellar ou Pix); o manifesto,
-com os três destinos da política; uma história de cena fixa que acompanha o
-passo na tela (dentro da cota, 402, dois trilhos, origin cega); o protocolo,
-com o 402 linha por linha; os recursos, com o preço que reage ao tráfego e o
-estorno automático; e o fechamento.
+sem React, com CSS próprio (`src/landing/landing.css`). Ela reproduz o protótipo
+técnico v35. O scroll é livre e a página tem: o hero, com uma simulação que o
+visitante comanda (enviar requisição, estourar a cota, pagar por Stellar ou Pix,
+ou rodar no automático); o manifesto; uma história de cena fixa, com quatro
+passos (dentro da cota, 402, dois trilhos, origin cega) e um indicador que
+acompanha o passo na tela; o protocolo, com o 402 linha por linha e abas por
+trilho; os recursos, com o preço que reage ao tráfego e o estorno automático; e
+o fechamento, com o banner `x402` em ASCII e a frase "Coloque um preço na sua
+API sem tocar nela.".
+
+O fundo é um campo de estrelas em WebGL (three.js, `src/landing/stars.ts`). As
+estrelas formam, em sequência, o muro de tijolos e os desenhos de cada passo da
+história, conforme o scroll. Ele anima sozinho, e é o único movimento contínuo da
+página. Com `prefers-reduced-motion` ele fica parado e escurecido, e as cenas
+viram quadros fixos. Se o navegador não tem WebGL, o canvas é removido e a
+página segue sem o fundo.
 
 Nada ali é medição. As cenas do hero, do preço e do estorno trazem o selo
 EXEMPLO, e a cena da história é ilustrativa. O que é número de produto tem
@@ -45,20 +54,10 @@ arquivo e nos textos da página, e precisam acompanhar o `awall.yaml` à mão. A
 landing não chama o gateway. O único dado de execução real é a liquidação
 linkada no fechamento (`1193d51b…`, na testnet).
 
-O fundo é preto com linhas de varredura e vinheta, e alguns pontos fixos de luz
-(canto superior esquerdo, direita, base) acendem as linhas e dão ao vidro dos
-cartões algo para desfocar. A luz não segue o mouse e nada se move sozinho. Os
-painéis (`.glass.lit`) são vidro com desfoque, e sob o ponteiro ganham uma
-poça de luz e a borda iluminada (sem ponteiro, nada acende). Os
-botões de ação seguem o padrão em pílula do console (metal claro para o
-primário, vidro para o secundário). Com `prefers-reduced-motion` as cenas viram
-quadros parados, e o hero só anda quando o visitante pede.
-
-A Solana aparece só no bloco dos trilhos, como linha "em breve" com marcador
-vazado e texto apagado, e não nos números do hero nem na liquidação: o gateway
-ainda não liquida nela, e nada na landing pode mostrar um trilho que não rodou.
-Quando a Solana for liquidada de verdade, ela entra nessas telas com o dado da
-execução.
+Os botões são pílulas do protótipo: o primário é branco com a seta em círculo, e o
+secundário tem contorno. Não há vidro nem luz que siga o ponteiro: a textura é
+uma grade com vinheta, e o brilho azul fica só atrás do fechamento. A landing
+não tem Solana: trilho que não roda não aparece na tela.
 
 **Identidade visual.** Console e checkout compartilham `src/theme.css` (cores,
 fontes e movimento) e a mesma linguagem: painéis de vidro, botões em pílula,
@@ -68,8 +67,8 @@ colunas de receita, nos selos de trilho e nos painéis do checkout. Verde,
 laranja e vermelho nos selos de status (`allow_free`, `waiting`, `refunded`)
 indicam só estado.
 
-A landing **não** importa o `theme.css`: tem paleta própria, com azul para a
-Stellar e verde-água para o Pix nos cartões. É uma divergência conhecida: o console
+A landing **não** importa o `theme.css`: tem o CSS próprio do protótipo v35, com
+azul para a Stellar e verde-água para o Pix. É uma divergência conhecida: o console
 ainda segue o visual anterior, e a cor da Stellar e do Pix não é a mesma nas
 duas áreas. Alinhar as duas é uma decisão pendente.
 
