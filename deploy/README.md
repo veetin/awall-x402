@@ -39,7 +39,7 @@ cd deploy
 export AWALL_DOMAIN=awall.example.com
 export AWALL_ADMIN_TOKEN=...            # long random value
 export AWALL_PUBLIC_BASE_URL=https://awall.example.com
-export AWALL_CHECKOUT_BASE_URL=https://awall.example.com/pay
+export AWALL_CHECKOUT_BASE_URL=https://awall.example.com
 export AWALL_CONSOLE_ORIGIN=https://awall.example.com
 export VITE_AWALL_URL=https://awall.example.com
 export STELLAR_PAY_TO=G...              # receiving account
