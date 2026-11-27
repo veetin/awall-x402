@@ -77,6 +77,9 @@ services:
       ]
     environment:
       VITE_AWALL_URL: ${VITE_AWALL_URL:-http://localhost}
+      # Both set fills the login form in. See deploy/README.md.
+      VITE_DEMO_USERNAME: ${VITE_DEMO_USERNAME:-}
+      VITE_DEMO_PASSWORD: ${VITE_DEMO_PASSWORD:-}
     depends_on: [gateway]
 
   caddy:

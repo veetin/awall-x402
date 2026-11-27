@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import {
   admin,
+  demoCredentials,
   gatewayUrl,
   login as signIn,
   logout as signOut,
@@ -139,8 +140,9 @@ export function App() {
 }
 
 function Login({ onSignedIn }: { onSignedIn: (user: ConsoleUser) => void }) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const demo = demoCredentials();
+  const [username, setUsername] = useState(demo?.username ?? "");
+  const [password, setPassword] = useState(demo?.password ?? "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -149,8 +151,9 @@ function Login({ onSignedIn }: { onSignedIn: (user: ConsoleUser) => void }) {
     setBusy(true);
     setError("");
     const result = await signIn(username, password);
-    // The password is dropped either way: nothing keeps it after the call.
-    setPassword("");
+    // The typed password is dropped either way: nothing keeps it after the
+    // call. A demo deployment refills the form so a wrong try is one click away.
+    setPassword(demo?.password ?? "");
     setBusy(false);
     if (!result.ok) {
       // The gateway answers the same for an unknown user and a wrong password,
@@ -170,6 +173,7 @@ function Login({ onSignedIn }: { onSignedIn: (user: ConsoleUser) => void }) {
       <form className="panel" onSubmit={(event) => void submit(event)}>
         <h1 className="mark">AWall<span className="mark-dot">.</span></h1>
         <p className="lede">Console do operador. Entre com usuário e senha.</p>
+        {demo && <p className="hint">Demonstração: usuário e senha já preenchidos. Basta entrar.</p>}
         <label htmlFor="username">Usuário</label>
         <input
           id="username"
@@ -194,9 +198,11 @@ function Login({ onSignedIn }: { onSignedIn: (user: ConsoleUser) => void }) {
           </svg>
           {busy ? "Entrando…" : "Entrar"}
         </button>
-        <p className="hint">
-          Sem usuário ainda? Crie o primeiro com <span className="mono">pnpm --filter @awall/gateway create-user</span>.
-        </p>
+        {!demo && (
+          <p className="hint">
+            Sem usuário ainda? Crie o primeiro com <span className="mono">pnpm --filter @awall/gateway create-user</span>.
+          </p>
+        )}
       </form>
     </div>
   );

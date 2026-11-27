@@ -72,6 +72,24 @@ is the only thing in front of it and it is the one setting
 `X-Forwarded-For`. Do not set it when something untrusted can reach the
 gateway directly.
 
+## Demo login for a hackathon
+
+A judge opening the console should not need a password. Create a throwaway
+user, then build the console with its credentials:
+
+```bash
+docker compose exec gateway pnpm --filter @awall/gateway create-user demo
+export VITE_DEMO_USERNAME=demo
+export VITE_DEMO_PASSWORD=...           # the one you just typed
+docker compose up -d --build console
+```
+
+The login form then opens filled in and "Entrar" is one click. The values are
+compiled into the public bundle, so anyone with the URL can sign in and use
+the control plane, including editing the policy. Use it on a testnet deployment
+with nothing real behind it, and take the two variables out (rebuild the
+console) when the demo is over.
+
 ## Before calling it production
 
 Read the checklist in `../docs/07-producao.md`. The items that bite first:

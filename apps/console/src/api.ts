@@ -12,6 +12,23 @@ export function gatewayUrl(): string {
   return base.replace(/\/$/, "");
 }
 
+/**
+ * Credentials the login form starts filled in with. Set both
+ * VITE_DEMO_USERNAME and VITE_DEMO_PASSWORD at build time to open the console
+ * with one click, which is what a hackathon demo wants.
+ *
+ * The values are baked into the public bundle, so they must belong to a
+ * throwaway user on a throwaway deployment. Without both variables the form
+ * starts empty.
+ */
+export function demoCredentials(): { username: string; password: string } | null {
+  const username = import.meta.env.VITE_DEMO_USERNAME;
+  const password = import.meta.env.VITE_DEMO_PASSWORD;
+  if (typeof username !== "string" || typeof password !== "string") return null;
+  if (username === "" || password === "") return null;
+  return { username, password };
+}
+
 export async function publicGet(path: string): Promise<Response> {
   return fetch(`${gatewayUrl()}${path}`);
 }

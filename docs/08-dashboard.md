@@ -80,6 +80,13 @@ Duas coisas, nesta ordem de prioridade:
 `/login`: usuário e senha. Enquanto não há sessão, as telas do dashboard
 mandam para cá. É a única tela do console que não exige autenticação.
 
+Para uma demonstração, `VITE_DEMO_USERNAME` e `VITE_DEMO_PASSWORD`, definidas
+na build do console, deixam o formulário já preenchido: quem abre o endereço só
+clica em "Entrar". Sem as duas variáveis o formulário abre vazio. Os valores
+entram no bundle público, então precisam ser de um usuário descartável numa
+implantação de testnet, e a sessão dele edita a política como qualquer outra.
+Isso é escolha de hackathon, não de produção.
+
 ### Ao vivo
 
 Fluxo de requisições em tempo real, via SSE. Uma linha por requisição:
