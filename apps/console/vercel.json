@@ -3,9 +3,10 @@
   "framework": null,
   "buildCommand": "pnpm build",
   "outputDirectory": "dist",
-  "cleanUrls": true,
-  "rewrites": [
-    { "source": "/", "destination": "/landing.html" },
-    { "source": "/documentacao", "destination": "/documentacao/index.html" }
+  "routes": [
+    { "src": "^/$", "dest": "/landing.html" },
+    { "src": "^/landing/?$", "dest": "/landing.html" },
+    { "src": "^/documentacao/?$", "dest": "/documentacao/index.html" },
+    { "handle": "filesystem" }
   ]
 }
