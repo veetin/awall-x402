@@ -16,13 +16,13 @@ import {
 } from "./api";
 
 const TABS = [
-  ["live", "Ao vivo", "live"],
-  ["requests", "Requisições", "requests"],
-  ["revenue", "Receita", "revenue"],
-  ["identities", "Identidades", "identities"],
-  ["payments", "Pagamentos", "payments"],
-  ["policy", "Política", "policy"],
-  ["health", "Saúde", "health"],
+  ["live", "Ao vivo"],
+  ["requests", "Requisições"],
+  ["revenue", "Receita"],
+  ["identities", "Identidades"],
+  ["payments", "Pagamentos"],
+  ["policy", "Política"],
+  ["health", "Saúde"],
 ] as const;
 
 type Tab = (typeof TABS)[number][0] | "identity" | "pay" | "login";
@@ -44,61 +44,6 @@ function readLocation(): Location {
 function go(path: string): void {
   window.history.pushState(null, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
-}
-
-function TabIcon({ name }: { name: string }) {
-  switch (name) {
-    case "live":
-      return (
-        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="2" />
-          <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" />
-        </svg>
-      );
-    case "requests":
-      return (
-        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-        </svg>
-      );
-    case "revenue":
-      return (
-        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="4" width="20" height="16" rx="2" />
-          <path d="M12 8v8m-4-5h8" />
-        </svg>
-      );
-    case "identities":
-      return (
-        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      );
-    case "payments":
-      return (
-        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="5" width="20" height="14" rx="2" />
-          <line x1="2" y1="10" x2="22" y2="10" />
-        </svg>
-      );
-    case "policy":
-      return (
-        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        </svg>
-      );
-    case "health":
-      return (
-        <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-        </svg>
-      );
-    default:
-      return null;
-  }
 }
 
 export function App() {
@@ -155,46 +100,31 @@ export function App() {
 
   return (
     <div className="app">
-      <aside className="side">
-        <div className="brand-header">
-          <div className="brand-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 2 7 12 12 22 7 12 2" />
-              <polyline points="2 17 12 22 22 17" />
-              <polyline points="2 12 12 17 22 12" />
-            </svg>
+      <header className="nav">
+        <div className="nav-inner">
+          <button type="button" className="nav-mark" onClick={() => go("/live")} aria-label="AWall, ao vivo">
+            AWall<span className="nav-dot">.</span>
+            <span className="nav-badge">x402</span>
+          </button>
+          <nav className="tabs" aria-label="Seções do console">
+            {TABS.map(([id, label]) => (
+              <button
+                key={id}
+                aria-current={location.tab === id || (id === "identities" && location.tab === "identity") ? "page" : undefined}
+                onClick={() => go(`/${id}`)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          <div className="rails" aria-label="Trilhos de pagamento">
+            <span className="rail-chip rail-stellar"><i aria-hidden="true" />Stellar testnet</span>
+            <span className="rail-chip rail-pix"><i aria-hidden="true" />Pix</span>
           </div>
-          <h1 className="mark">
-            A<span>Wall</span>
-            <span className="brand-badge">x402</span>
-          </h1>
+          <SessionBar user={user} onSignedOut={() => setUser(null)} />
         </div>
-        <p className="side-desc">Gateway autônomo: 402 Payment Required substituindo o 429.</p>
-        <nav>
-          {TABS.map(([id, label, icon]) => (
-            <button
-              key={id}
-              aria-current={location.tab === id ? "page" : undefined}
-              onClick={() => go(`/${id}`)}
-            >
-              <TabIcon name={icon} />
-              <span>{label}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="side-footer">
-          <div className="rail-status">
-            <span><span className="rail-dot" />STELLAR TESTNET</span>
-            <span>USDC / XLM</span>
-          </div>
-          <div className="rail-status">
-            <span><span className="rail-dot" />PIX RAIL</span>
-            <span>ABACATE</span>
-          </div>
-        </div>
-      </aside>
+      </header>
       <main className="main">
-        <SessionBar user={user} onSignedOut={() => setUser(null)} />
         {location.tab === "live" && <Live />}
         {location.tab === "requests" && <Requests />}
         {location.tab === "revenue" && <Revenue />}
@@ -238,7 +168,7 @@ function Login({ onSignedIn }: { onSignedIn: (user: ConsoleUser) => void }) {
   return (
     <div className="login">
       <form className="panel" onSubmit={(event) => void submit(event)}>
-        <h1 className="mark">A<span>Wall</span></h1>
+        <h1 className="mark">AWall<span className="mark-dot">.</span></h1>
         <p className="lede">Console do operador. Entre com usuário e senha.</p>
         <label htmlFor="username">Usuário</label>
         <input
@@ -274,12 +204,13 @@ function Login({ onSignedIn }: { onSignedIn: (user: ConsoleUser) => void }) {
 
 function SessionBar({ user, onSignedOut }: { user: ConsoleUser; onSignedOut: () => void }) {
   return (
-    <div className="token">
+    <div className="session">
       <span>
         Sessão de <strong>{user.username}</strong>
       </span>
       <button
         type="button"
+        className="ghost"
         onClick={() => {
           void signOut().then(onSignedOut);
         }}
@@ -437,7 +368,7 @@ function Live() {
               {visible.map((row, index) => (
                 <tr key={`${row.at}-${index}`}>
                   <td className="mono">{row.at.slice(11, 19)}</td>
-                  <td className="mono" style={{ color: "var(--cyan)" }}>{row.identityId}</td>
+                  <td className="mono" style={{ color: "var(--accent)" }}>{row.identityId}</td>
                   <td>{row.type === "payment" ? <span className="pill allow_credit">pagamento {row.rail ?? ""}</span> : row.route}</td>
                   <td>
                     {row.decision ? <StatusPill value={row.decision} /> : <StatusPill value={row.rail ?? "payment"} />}
@@ -482,7 +413,7 @@ function Requests() {
               {rollups.map((row, index) => (
                 <tr key={index}>
                   <td className="mono">{String(row["hour"] ?? "")}</td>
-                  <td className="mono" style={{ color: "var(--cyan)" }}>{String(row["identityId"] ?? "")}</td>
+                  <td className="mono" style={{ color: "var(--accent)" }}>{String(row["identityId"] ?? "")}</td>
                   <td>{String(row["route"] ?? "")}</td>
                   <td className="mono">{String(row["requests"] ?? "")}</td>
                   <td className="mono">{String(row["credits"] ?? "")}</td>
@@ -509,7 +440,7 @@ function Revenue() {
         <div className="cards">
           <article className="card">
             <span>Requisições Recuperadas</span>
-            <strong style={{ color: "var(--cyan)" }}>{data.recoveredRequests}</strong>
+            <strong style={{ color: "var(--accent)" }}>{data.recoveredRequests}</strong>
           </article>
           <article className="card">
             <span>Volume Total</span>
@@ -521,15 +452,15 @@ function Revenue() {
           </article>
           <article className="card">
             <span>USDC Liquidado (Stellar)</span>
-            <strong style={{ color: "var(--good)" }}>{atomic(codeAmount(data.revenue, "USDC"))}</strong>
+            <strong style={{ color: "var(--stellar)" }}>{atomic(codeAmount(data.revenue, "USDC"))}</strong>
           </article>
           <article className="card">
             <span>XLM Liquidado (Stellar)</span>
-            <strong>{atomic(codeAmount(data.revenue, "XLM"))}</strong>
+            <strong style={{ color: "var(--stellar)" }}>{atomic(codeAmount(data.revenue, "XLM"))}</strong>
           </article>
           <article className="card">
             <span>Pix Liquidado (BRL)</span>
-            <strong style={{ color: "var(--good)" }}>R$ {(Number(codeAmount(data.revenue, "BRL")) / 100).toFixed(2)}</strong>
+            <strong style={{ color: "var(--pix)" }}>R$ {(Number(codeAmount(data.revenue, "BRL")) / 100).toFixed(2)}</strong>
           </article>
           <article className="card">
             <span>Infraestrutura Estimada</span>
@@ -539,7 +470,7 @@ function Revenue() {
       )}
       {data && (
         <div className="panel" style={{ marginTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>Multiplicador médio de abuso de tráfego:</span>
+          <span style={{ color: "var(--text-2)", fontSize: 13 }}>Multiplicador médio de abuso de tráfego:</span>
           <span className="pill wait"><span className="pill-dot" />{data.abuse.avgMultiplier.toFixed(2)}×</span>
         </div>
       )}
@@ -635,7 +566,7 @@ function Identities() {
           <button className="primary" type="button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_LIMIT))}>
             Anteriores
           </button>
-          <span className="mono" style={{ color: "var(--text-secondary)", fontSize: 13 }}>
+          <span className="mono" style={{ color: "var(--text-2)", fontSize: 13 }}>
             Linhas {offset + 1}–{offset + rows.length}
           </span>
           <button className="primary" type="button" disabled={page.nextOffset === null} onClick={() => setOffset(page.nextOffset ?? offset)}>
@@ -670,7 +601,7 @@ function IdentityDetail({ id }: { id: string }) {
       <button className="row-link" style={{ marginBottom: 16 }} onClick={() => go("/identities")}>
         ← Voltar para lista de identidades
       </button>
-      <h1>Identidade: <span className="mono" style={{ color: "var(--cyan)" }}>{id}</span></h1>
+      <h1>Identidade: <span className="mono" style={{ color: "var(--accent)" }}>{id}</span></h1>
       {loading && <p className="empty">Carregando detalhes do cliente…</p>}
       {error && <p className="banner bad">{error}</p>}
       {data && (
@@ -722,7 +653,7 @@ function IdentityDetail({ id }: { id: string }) {
           <button className="primary" type="button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_LIMIT))}>
             Anteriores
           </button>
-          <span className="mono" style={{ color: "var(--text-secondary)", fontSize: 13 }}>
+          <span className="mono" style={{ color: "var(--text-2)", fontSize: 13 }}>
             Lançamentos {offset + 1}–{offset + (data?.ledger.length ?? 0)}
           </span>
           <button className="primary" type="button" disabled={ledgerPage.nextOffset === null} onClick={() => setOffset(ledgerPage.nextOffset ?? offset)}>
@@ -761,11 +692,11 @@ function Payments() {
             <tbody>
               {offers.map((row) => (
                 <tr key={String(row["id"])}>
-                  <td className="mono" style={{ color: "var(--cyan)" }}>{String(row["id"])}</td>
+                  <td className="mono" style={{ color: "var(--accent)" }}>{String(row["id"])}</td>
                   <td><StatusPill value={String(row["status"])} /></td>
-                  <td className="mono">{formatStellarAmount(String(row["priceUsdcAtomic"] ?? ""))}</td>
-                  <td className="mono">{formatStellarAmount(String(row["priceXlmAtomic"] ?? ""))}</td>
-                  <td className="mono">R$ {(Number(row["priceBrlCents"] ?? 0) / 100).toFixed(2)}</td>
+                  <td className="mono" style={{ color: "var(--stellar)" }}>{formatStellarAmount(String(row["priceUsdcAtomic"] ?? ""))}</td>
+                  <td className="mono" style={{ color: "var(--stellar)" }}>{formatStellarAmount(String(row["priceXlmAtomic"] ?? ""))}</td>
+                  <td className="mono" style={{ color: "var(--pix)" }}>R$ {(Number(row["priceBrlCents"] ?? 0) / 100).toFixed(2)}</td>
                   <td className="mono" style={{ color: "var(--good)", fontWeight: 600 }}>{String(row["packCredits"])}</td>
                 </tr>
               ))}
@@ -805,7 +736,7 @@ function Policy() {
   return (
     <section>
       <h1>Política do Gateway</h1>
-      <p className="lede">Origem atual: <span className="mono" style={{ color: "var(--cyan)" }}>{data?.source ?? "…"}</span>. As alterações são dinâmicas sem reinicialização.</p>
+      <p className="lede">Origem atual: <span className="mono" style={{ color: "var(--accent)" }}>{data?.source ?? "…"}</span>. As alterações são dinâmicas sem reinicialização.</p>
       {loading && <p className="empty">Carregando política…</p>}
       {error && <p className="banner bad">{error}</p>}
       {data && (
@@ -825,14 +756,14 @@ function Policy() {
           {confirming && (
             <div className="panel" style={{ marginTop: 16 }}>
               <h3 style={{ margin: "0 0 10px", fontSize: 16 }}>Comparativo de Alterações (Diff)</h3>
-              <p style={{ color: "var(--text-secondary)", fontSize: 13, margin: "0 0 12px" }}>Confira a política anterior à esquerda e a nova proposta à direita antes de cometer.</p>
+              <p style={{ color: "var(--text-2)", fontSize: 13, margin: "0 0 12px" }}>Confira a política anterior à esquerda e a nova proposta à direita antes de cometer.</p>
               <div className="diff">
                 <div>
-                  <span className="mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>POLÍTICA ATUAL</span>
+                  <span className="mono" style={{ fontSize: 11, color: "var(--text-3)" }}>POLÍTICA ATUAL</span>
                   <pre>{original}</pre>
                 </div>
                 <div>
-                  <span className="mono" style={{ fontSize: 11, color: "var(--cyan)" }}>NOVA VERSÃO</span>
+                  <span className="mono" style={{ fontSize: 11, color: "var(--accent)" }}>NOVA VERSÃO</span>
                   <pre>{draft}</pre>
                 </div>
               </div>
@@ -863,7 +794,7 @@ function Policy() {
                 <tbody>
                   {data.versions.map((version) => (
                     <tr key={version.id}>
-                      <td className="mono" style={{ color: "var(--cyan)" }}>{version.id}</td>
+                      <td className="mono" style={{ color: "var(--accent)" }}>{version.id}</td>
                       <td>{version.appliedBy}</td>
                       <td className="mono">{version.createdAt}</td>
                     </tr>
@@ -907,8 +838,8 @@ function stellarRow(value: unknown) {
   };
   return (
     <div style={{ marginTop: 12 }}>
-      <p className="mono" style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 10 }}>
-        <span style={{ color: "var(--cyan)" }}>{stellar.network}</span> → {stellar.payTo}
+      <p className="mono" style={{ fontSize: 12, color: "var(--text-2)", marginBottom: 10 }}>
+        <span style={{ color: "var(--accent)" }}>{stellar.network}</span> → {stellar.payTo}
       </p>
       <div className="table-container" style={{ margin: 0 }}>
         <table>
@@ -920,7 +851,7 @@ function stellarRow(value: unknown) {
               <tr key={row?.code}>
                 <td style={{ fontWeight: 600 }}>{row?.code}</td>
                 <td className="mono" style={{ color: "var(--good)" }}>{formatStellarAmount(row?.amount)}</td>
-                <td className="mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>{row?.asset}</td>
+                <td className="mono" style={{ fontSize: 11, color: "var(--text-3)" }}>{row?.asset}</td>
               </tr>
             ))}
           </tbody>
@@ -1077,7 +1008,7 @@ function WalletPayment({ offerId }: { offerId: string }) {
     <div className="wallet">
       <p className="muted" style={{ fontSize: 13, margin: "0 0 8px" }}>
         Assine os termos acima na sua carteira Stellar e cole aqui o header
-        <span className="mono" style={{ color: "var(--cyan)" }}> PAYMENT-SIGNATURE</span>:
+        <span className="mono" style={{ color: "var(--accent)" }}> PAYMENT-SIGNATURE</span>:
       </p>
       <textarea
         className="mono"
@@ -1137,12 +1068,12 @@ function Checkout({ offerId }: { offerId: string }) {
       <div className="pay-card">
         <div className="pay-header">
           <h1 className="mark">
-            A<span>Wall</span>
+            AWall<span className="mark-dot">.</span>
             <span className="brand-badge">TERMINAL DE CHECKOUT</span>
           </h1>
           <div className="offer-chip">
             <span>OFFER</span>
-            <span style={{ color: "var(--cyan)" }}>{offerId}</span>
+            <span style={{ color: "var(--accent)" }}>{offerId}</span>
           </div>
         </div>
 
@@ -1170,15 +1101,15 @@ function Checkout({ offerId }: { offerId: string }) {
 
         {status === 202 && (
           <div className="checkout-grid">
-            <section className="checkout-panel">
+            <section className="checkout-panel rail-stellar">
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <span className="status-wait">
                   <span className="pulse-beacon" />
                   Stellar Rail (USDC / XLM)
                 </span>
-                <span className="pill allow_credit">AUTÔNOMO</span>
+                <span className="pill stellar">AUTÔNOMO</span>
               </div>
-              <p style={{ color: "var(--text-secondary)", fontSize: 13, margin: "0 0 12px" }}>
+              <p style={{ color: "var(--text-2)", fontSize: 13, margin: "0 0 12px" }}>
                 Pacote de <strong style={{ color: "var(--text-pure)" }}>{String(body?.["packCredits"] ?? "—")} créditos</strong>. Pague diretamente com a carteira em um dos dois ativos.
               </p>
               {stellarRow(body?.["stellar"])}
@@ -1193,13 +1124,13 @@ function Checkout({ offerId }: { offerId: string }) {
               ) : null}
             </section>
 
-            <section className="checkout-panel">
+            <section className="checkout-panel rail-pix">
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <span className="status-wait">
                   <span className="pulse-beacon" />
                   Pix Rail (Instantâneo BR)
                 </span>
-                <span className="pill wait">HUMANO NO CIRCUITO</span>
+                <span className="pill pix">HUMANO NO CIRCUITO</span>
               </div>
               {brCode ? (
                 <>
@@ -1210,7 +1141,7 @@ function Checkout({ offerId }: { offerId: string }) {
               ) : (
                 <p className="empty" style={{ padding: "16px 0" }}>O código Pix aparecerá aqui assim que gerado pelo provedor.</p>
               )}
-              <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--text-secondary)" }}>
+              <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--text-2)" }}>
                 <span>Valor:</span>
                 <strong style={{ color: "var(--text-pure)" }}>R$ {(Number(body?.["amountCents"] ?? 0) / 100).toFixed(2)}</strong>
               </div>
@@ -1219,7 +1150,7 @@ function Checkout({ offerId }: { offerId: string }) {
         )}
 
         {status === 404 && <p className="banner bad">Offer desconhecida ou não encontrada.</p>}
-        <div style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: "var(--text-dim)", fontFamily: "var(--mono)" }}>
+        <div style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: "var(--text-3)", fontFamily: "var(--mono)" }}>
           GATEWAY: {gatewayUrl()}
         </div>
       </div>

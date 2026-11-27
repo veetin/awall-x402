@@ -1,0 +1,28 @@
+/* Tokens shared by the console and the landing page, so the two read as one
+   product. Colour keeps one meaning per hue everywhere it appears:
+   green = free quota, amber = Stellar, blue = Pix. */
+
+:root {
+  color-scheme: dark;
+  --bg: #08090d;
+  --text: #e2e8f0;
+  --text-pure: #ffffff;
+  --text-2: rgba(226, 232, 240, 0.63);
+  --text-3: #64748b;
+  --line: rgba(255, 255, 255, 0.12);
+  --glass: rgba(14, 18, 24, 0.48);
+  --free: #34d399;
+  --stellar: #fbbf24;
+  --pix: #38bdf8;
+  --metal: linear-gradient(180deg, #f1f5f9 0%, #94a3b8 100%);
+  --font: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --spring: cubic-bezier(0.2, 1.4, 0.4, 1);
+  --spring-ms: 600ms;
+  --settle: cubic-bezier(0.16, 1, 0.3, 1);
+  --settle-ms: 900ms;
+}
+
+* {
+  box-sizing: border-box;
+}
