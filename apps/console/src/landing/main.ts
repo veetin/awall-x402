@@ -2,7 +2,7 @@ import "./landing.css";
 import { mountAbuse } from "./abuse";
 import { $, $$, trackVisible } from "./dom";
 import { Flow, type FlowMode } from "./flow";
-import { mountLight } from "./light";
+import { mountLit } from "./lit";
 import { mountRefund } from "./refund";
 
 const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -57,7 +57,7 @@ $$("[data-cardtabs]").forEach((root) => bindTabs(root, ".cardtabs button", ".car
 /* Scenes                                                                   */
 /* ------------------------------------------------------------------------ */
 
-mountLight(reduced);
+mountLit();
 
 type Scene = { flow: Flow; visible: { readonly visible: boolean } };
 const scenes: Scene[] = [];

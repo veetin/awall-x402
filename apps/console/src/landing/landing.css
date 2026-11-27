@@ -80,11 +80,10 @@ footer{padding:28px 40px;border-top:1px solid var(--line);color:#555;font-family
  .steps .step{min-height:60vh}.stage{height:260px}.term{height:150px;font-size:11px}.ann{grid-template-columns:1fr}.lbl{font-size:9px;letter-spacing:.08em}.lbl b{font-size:9.5px}footer{flex-direction:column;gap:6px}}
 
 body{background:#08090d}
-:root{--lx:50%;--ly:30%}
-.bg-light{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(900px 520px at 50% -8%,rgba(96,130,200,.16),transparent 70%),radial-gradient(700px 480px at 100% 55%,rgba(45,212,191,.07),transparent 70%),radial-gradient(800px 520px at 0% 85%,rgba(59,130,246,.08),transparent 70%)}
+.bg-light{position:fixed;inset:0;z-index:0;pointer-events:none}
 .bg-light::before,.bg-light::after{content:"";position:absolute;inset:0}
-.bg-light::before{background:repeating-linear-gradient(0deg,rgba(255,255,255,.17) 0 1px,transparent 1px 3px);-webkit-mask-image:radial-gradient(440px circle at var(--lx) var(--ly),#000 0%,transparent 100%);mask-image:radial-gradient(440px circle at var(--lx) var(--ly),#000 0%,transparent 100%)}
-.bg-light::after{background:radial-gradient(520px circle at var(--lx) var(--ly),rgba(148,163,184,.13),transparent 70%)}
+.bg-light::before{background:repeating-linear-gradient(0deg,rgba(255,255,255,.17) 0 1px,transparent 1px 3px);-webkit-mask-image:radial-gradient(420px circle at 14% 24%,#000,transparent),radial-gradient(380px circle at 86% 42%,#000,transparent),radial-gradient(460px circle at 30% 82%,#000,transparent),radial-gradient(340px circle at 94% 92%,#000,transparent);mask-image:radial-gradient(420px circle at 14% 24%,#000,transparent),radial-gradient(380px circle at 86% 42%,#000,transparent),radial-gradient(460px circle at 30% 82%,#000,transparent),radial-gradient(340px circle at 94% 92%,#000,transparent)}
+.bg-light::after{background:radial-gradient(520px circle at 14% 24%,rgba(96,130,200,.2),transparent 70%),radial-gradient(460px circle at 86% 42%,rgba(45,212,191,.11),transparent 70%),radial-gradient(560px circle at 30% 82%,rgba(59,130,246,.14),transparent 70%),radial-gradient(420px circle at 94% 92%,rgba(148,163,184,.12),transparent 70%)}
 .scanlines{position:fixed;inset:0;z-index:100;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.022) 0 1px,transparent 1px 3px),radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.45) 100%)}
 main,footer{position:relative;z-index:1}
 
