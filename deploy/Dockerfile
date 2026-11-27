@@ -4,7 +4,7 @@
 #
 # .dockerignore keeps node_modules, .git and local .env files out of the build
 # context, so the install below is the one that decides the dependency tree.
-FROM node:22-bookworm-slim
+FROM node:24-bookworm-slim
 WORKDIR /app
 RUN corepack enable
 COPY . .
