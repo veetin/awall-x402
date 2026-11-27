@@ -49,6 +49,7 @@ import {
   LiveBus,
   createPolicyHolder,
   mountControl,
+  type ControlEnv,
   type LiveEvent,
   type PolicyHolder,
 } from "./control.js";
@@ -135,7 +136,7 @@ export function createApp(config: GatewayConfig, initialPolicy: Policy, deps: Ga
   const reservations = new ReservationStore<Reservation>();
   const prefix = config.controlPrefix;
 
-  const app = new Hono();
+  const app = new Hono<ControlEnv>();
 
   app.get("/healthz", (c) => c.json({ ok: true, network: config.network }));
 

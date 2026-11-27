@@ -43,6 +43,23 @@ describe("readConfig on testnet", () => {
     expect(config.xlmAsset).toBe(STELLAR_TESTNET_XLM);
   });
 
+  it("falls back when Compose passes the variable through as empty", () => {
+    // `${STELLAR_ASSET:-}` defines the variable in the container as "" when it
+    // is not exported on the host, so the fallback has to cover blank, not
+    // only unset. Before this, the exact rail advertised an empty asset.
+    const config = readConfig({
+      STELLAR_NETWORK: "stellar:testnet",
+      STELLAR_ASSET: "",
+      X402_FACILITATOR_URL: "",
+    });
+    expect(config.asset).toBe(STELLAR_TESTNET_USDC);
+    expect(config.facilitatorUrl).toBe("https://www.x402.org/facilitator");
+  });
+
+  it("falls back on a value that is only whitespace", () => {
+    expect(readConfig({ STELLAR_ASSET: "   " }).asset).toBe(STELLAR_TESTNET_USDC);
+  });
+
   it("still lets the environment override each value", () => {
     const config = readConfig({
       STELLAR_NETWORK: "stellar:testnet",
@@ -120,5 +137,23 @@ describe("readConfig on pubnet", () => {
     expect(config.payTo).toBe(PUBNET_PAY_TO);
     expect(config.facilitatorUrl).toBe(PUBNET_FACILITATOR);
     expect(config.xlmAsset).toBe(STELLAR_PUBNET_XLM);
+  });
+});
+
+describe("readConfig and the checkout base URL", () => {
+  it("defaults to the console's own port", () => {
+    expect(readConfig({}).checkoutBaseUrl).toBe("http://localhost:4179");
+  });
+
+  it("treats an empty value as absent, the way Compose passes it", () => {
+    expect(readConfig({ AWALL_CHECKOUT_BASE_URL: "" }).checkoutBaseUrl).toBe(
+      "http://localhost:4179",
+    );
+  });
+
+  it("drops a trailing slash, so appending a path cannot double the separator", () => {
+    expect(
+      readConfig({ AWALL_CHECKOUT_BASE_URL: "https://awall.example.com/" }).checkoutBaseUrl,
+    ).toBe("https://awall.example.com");
   });
 });

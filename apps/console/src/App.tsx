@@ -3,10 +3,14 @@ import QRCode from "qrcode";
 import {
   admin,
   gatewayUrl,
+  login as signIn,
+  logout as signOut,
   payOffer,
   publicGet,
   streamTicket,
   streamUrl,
+  whoami,
+  type ConsoleUser,
   type LiveEvent,
   type PageInfo,
 } from "./api";
@@ -21,7 +25,7 @@ const TABS = [
   ["health", "Saúde", "health"],
 ] as const;
 
-type Tab = (typeof TABS)[number][0] | "identity" | "pay";
+type Tab = (typeof TABS)[number][0] | "identity" | "pay" | "login";
 
 type Location = { tab: Tab; offerId?: string; identityId?: string };
 
@@ -29,6 +33,7 @@ function readLocation(): Location {
   const path = window.location.pathname.replace(/\/$/, "") || "/";
   const pay = /^\/pay\/([^/]+)$/.exec(path);
   if (pay?.[1]) return { tab: "pay", offerId: decodeURIComponent(pay[1]) };
+  if (path === "/login") return { tab: "login" };
   const identity = /^\/identities\/([^/]+)$/.exec(path);
   if (identity?.[1]) return { tab: "identity", identityId: decodeURIComponent(identity[1]) };
   const name = path.slice(1);
@@ -98,7 +103,8 @@ function TabIcon({ name }: { name: string }) {
 
 export function App() {
   const [location, setLocation] = useState<Location>(readLocation);
-  const [token, setToken] = useState(() => sessionStorage.getItem("awall-admin") ?? "");
+  /** `undefined` while the session is still being checked. */
+  const [user, setUser] = useState<ConsoleUser | null | undefined>(undefined);
 
   useEffect(() => {
     const sync = () => setLocation(readLocation());
@@ -106,8 +112,45 @@ export function App() {
     return () => window.removeEventListener("popstate", sync);
   }, []);
 
+  const checkout = location.tab === "pay" && location.offerId !== undefined;
+
+  useEffect(() => {
+    // The checkout is public and has no session to ask about.
+    if (checkout) return;
+    let cancelled = false;
+    void whoami().then((found) => {
+      if (!cancelled) setUser(found);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [checkout]);
+
+  // The URL follows the session: no session means `/login`, and a session
+  // means anything but. Navigation is a side effect, so it is not done while
+  // rendering.
+  useEffect(() => {
+    if (checkout || user === undefined) return;
+    if (user === null && location.tab !== "login") go("/login");
+    if (user !== null && location.tab === "login") go("/live");
+  }, [checkout, user, location.tab]);
+
   if (location.tab === "pay" && location.offerId) {
     return <Checkout offerId={location.offerId} />;
+  }
+
+  if (user === undefined) {
+    return <p className="empty">Carregando…</p>;
+  }
+
+  // No session: the login screen, whatever the URL still says.
+  if (user === null) {
+    return <Login onSignedIn={setUser} />;
+  }
+
+  // Signed in and on `/login`: the effect above is already moving away.
+  if (location.tab === "login") {
+    return <p className="empty">Carregando…</p>;
   }
 
   return (
@@ -151,64 +194,112 @@ export function App() {
         </div>
       </aside>
       <main className="main">
-        <TokenBar token={token} onToken={setToken} />
-        {location.tab === "live" && <Live token={token} />}
-        {location.tab === "requests" && <Requests token={token} />}
-        {location.tab === "revenue" && <Revenue token={token} />}
-        {location.tab === "identities" && <Identities token={token} />}
-        {location.tab === "identity" && location.identityId && <IdentityDetail token={token} id={location.identityId} />}
-        {location.tab === "payments" && <Payments token={token} />}
-        {location.tab === "policy" && <Policy token={token} />}
-        {location.tab === "health" && <Health token={token} />}
+        <SessionBar user={user} onSignedOut={() => setUser(null)} />
+        {location.tab === "live" && <Live />}
+        {location.tab === "requests" && <Requests />}
+        {location.tab === "revenue" && <Revenue />}
+        {location.tab === "identities" && <Identities />}
+        {location.tab === "identity" && location.identityId && <IdentityDetail id={location.identityId} />}
+        {location.tab === "payments" && <Payments />}
+        {location.tab === "policy" && <Policy />}
+        {location.tab === "health" && <Health />}
       </main>
     </div>
   );
 }
 
-function TokenBar({ token, onToken }: { token: string; onToken: (value: string) => void }) {
-  const [draft, setDraft] = useState(token);
+function Login({ onSignedIn }: { onSignedIn: (user: ConsoleUser) => void }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: React.FormEvent): Promise<void> {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    const result = await signIn(username, password);
+    // The password is dropped either way: nothing keeps it after the call.
+    setPassword("");
+    setBusy(false);
+    if (!result.ok) {
+      // The gateway answers the same for an unknown user and a wrong password,
+      // and so does this screen.
+      setError(
+        result.status === 401
+          ? "Usuário ou senha incorretos."
+          : "Não consegui falar com o gateway. Confira se ele está no ar.",
+      );
+      return;
+    }
+    onSignedIn(result.user);
+  }
+
   return (
-    <form
-      className="token"
-      onSubmit={(event) => {
-        event.preventDefault();
-        sessionStorage.setItem("awall-admin", draft);
-        onToken(draft);
-      }}
-    >
-      <input
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        placeholder="Token de administrador (AWALL_ADMIN_TOKEN)"
-        autoComplete="off"
-        aria-label="Token de administrador"
-      />
-      <button className="primary" type="submit">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-        Entrar
-      </button>
-    </form>
+    <div className="login">
+      <form className="panel" onSubmit={(event) => void submit(event)}>
+        <h1 className="mark">A<span>Wall</span></h1>
+        <p className="lede">Console do operador. Entre com usuário e senha.</p>
+        <label htmlFor="username">Usuário</label>
+        <input
+          id="username"
+          value={username}
+          onChange={(event) => setUsername(event.target.value)}
+          autoComplete="username"
+          autoFocus
+        />
+        <label htmlFor="password">Senha</label>
+        <input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          autoComplete="current-password"
+        />
+        {error && <p className="banner bad">{error}</p>}
+        <button className="primary" type="submit" disabled={busy || !username || !password}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          {busy ? "Entrando…" : "Entrar"}
+        </button>
+        <p className="hint">
+          Sem usuário ainda? Crie o primeiro com <span className="mono">pnpm --filter @awall/gateway create-user</span>.
+        </p>
+      </form>
+    </div>
   );
 }
 
-function useAdmin<T>(token: string, path: string) {
+function SessionBar({ user, onSignedOut }: { user: ConsoleUser; onSignedOut: () => void }) {
+  return (
+    <div className="token">
+      <span>
+        Sessão de <strong>{user.username}</strong>
+      </span>
+      <button
+        type="button"
+        onClick={() => {
+          void signOut().then(onSignedOut);
+        }}
+      >
+        Sair
+      </button>
+    </div>
+  );
+}
+
+function useAdmin<T>(path: string) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!token) {
-      setData(null);
-      setError("Informe o token de administrador. Sem ele o gateway responde 401.");
-      return;
-    }
     let cancelled = false;
     setLoading(true);
     setError("");
-    admin(path, token)
+    admin(path)
       .then(async (response) => {
         if (!response.ok) throw new Error(`${response.status}`);
         return response.json() as Promise<T>;
@@ -225,7 +316,7 @@ function useAdmin<T>(token: string, path: string) {
     return () => {
       cancelled = true;
     };
-  }, [token, path]);
+  }, [path]);
 
   return { data, error, loading };
 }
@@ -240,14 +331,13 @@ function StatusPill({ value }: { value: string }) {
   );
 }
 
-function Live({ token }: { token: string }) {
+function Live() {
   const [rows, setRows] = useState<LiveEvent[]>([]);
   const [decision, setDecision] = useState("");
   const [identity, setIdentity] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!token) return;
     let stopped = false;
     let source: EventSource | null = null;
     let retry = 0;
@@ -264,7 +354,7 @@ function Live({ token }: { token: string }) {
      */
     const open = async () => {
       try {
-        const ticket = await streamTicket(token);
+        const ticket = await streamTicket();
         if (stopped) return;
         const opened = new EventSource(streamUrl(ticket));
         source = opened;
@@ -279,7 +369,7 @@ function Live({ token }: { token: string }) {
         };
       } catch {
         if (stopped) return;
-        setError("Não consegui abrir o fluxo. Confira o token e se o gateway está no ar.");
+        setError("Não consegui abrir o fluxo. Confira se o gateway está no ar.");
         retry = window.setTimeout(() => void open(), 5000);
       }
     };
@@ -290,7 +380,7 @@ function Live({ token }: { token: string }) {
       window.clearTimeout(retry);
       source?.close();
     };
-  }, [token]);
+  }, []);
 
   const visible = rows.filter((row) => {
     if (decision && row.decision !== decision) return false;
@@ -302,10 +392,9 @@ function Live({ token }: { token: string }) {
     <section>
       <h1>
         Ao vivo
-        {token && !error && <span className="pill good"><span className="pill-dot" />STREAM SSE CONECTADO</span>}
+        {!error && <span className="pill good"><span className="pill-dot" />STREAM SSE CONECTADO</span>}
       </h1>
       <p className="lede">Cada requisição e cada pagamento, assim que o gateway decide no pipeline x402.</p>
-      {!token && <p className="banner">Informe o token para abrir o fluxo em tempo real.</p>}
       {error && <p className="banner bad">{error}</p>}
       <div className="filters">
         <input
@@ -366,8 +455,8 @@ function Live({ token }: { token: string }) {
   );
 }
 
-function Requests({ token }: { token: string }) {
-  const { data, error, loading } = useAdmin<{ rollups: Record<string, unknown>[] }>(token, "/awall/usage/rollups");
+function Requests() {
+  const { data, error, loading } = useAdmin<{ rollups: Record<string, unknown>[] }>("/awall/usage/rollups");
   const rollups = data?.rollups ?? [];
   return (
     <section>
@@ -408,8 +497,8 @@ function Requests({ token }: { token: string }) {
   );
 }
 
-function Revenue({ token }: { token: string }) {
-  const { data, error, loading } = useAdmin<Summary>(token, "/awall/stats/summary?window=24h");
+function Revenue() {
+  const { data, error, loading } = useAdmin<Summary>("/awall/stats/summary?window=24h");
   return (
     <section>
       <h1>Receita & Telemetria</h1>
@@ -487,10 +576,9 @@ function atomic(value: string): string {
 
 const PAGE_LIMIT = 50;
 
-function Identities({ token }: { token: string }) {
+function Identities() {
   const [offset, setOffset] = useState(0);
   const { data, error, loading } = useAdmin<{ identities: Identity[]; page: PageInfo }>(
-    token,
     `/awall/identities?limit=${PAGE_LIMIT}&offset=${offset}`,
   );
   const rows = data?.identities ?? [];
@@ -568,14 +656,14 @@ type Identity = {
   lastSeenAt: string;
 };
 
-function IdentityDetail({ token, id }: { token: string; id: string }) {
+function IdentityDetail({ id }: { id: string }) {
   const [offset, setOffset] = useState(0);
   const { data, error, loading } = useAdmin<{
     identity: Identity;
     ledger: Record<string, unknown>[];
     ledgerPage: PageInfo;
     payments: Record<string, unknown>[];
-  }>(token, `/awall/identities/${id}?limit=${PAGE_LIMIT}&offset=${offset}`);
+  }>(`/awall/identities/${id}?limit=${PAGE_LIMIT}&offset=${offset}`);
   const ledgerPage = data?.ledgerPage;
   return (
     <section>
@@ -646,8 +734,8 @@ function IdentityDetail({ token, id }: { token: string; id: string }) {
   );
 }
 
-function Payments({ token }: { token: string }) {
-  const { data, error, loading } = useAdmin<{ payments: Record<string, unknown>[]; offers: Record<string, unknown>[] }>(token, "/awall/payments");
+function Payments() {
+  const { data, error, loading } = useAdmin<{ payments: Record<string, unknown>[]; offers: Record<string, unknown>[] }>("/awall/payments");
   const payments = data?.payments ?? [];
   const offers = data?.offers ?? [];
   return (
@@ -689,8 +777,8 @@ function Payments({ token }: { token: string }) {
   );
 }
 
-function Policy({ token }: { token: string }) {
-  const { data, error, loading } = useAdmin<{ source: string; policy: unknown; versions: { id: string; appliedBy: string; createdAt: string }[] }>(token, "/awall/policy");
+function Policy() {
+  const { data, error, loading } = useAdmin<{ source: string; policy: unknown; versions: { id: string; appliedBy: string; createdAt: string }[] }>("/awall/policy");
   const original = useMemo(() => (data ? JSON.stringify(data.policy, null, 2) : ""), [data]);
   const [draft, setDraft] = useState("");
   const [confirming, setConfirming] = useState(false);
@@ -700,9 +788,9 @@ function Policy({ token }: { token: string }) {
 
   async function apply() {
     setMessage("");
-    const response = await admin("/awall/policy", token, {
+    // No actor header: the gateway records the signed-in user from the session.
+    const response = await admin("/awall/policy", {
       method: "PUT",
-      headers: { "x-awall-actor": "console" },
       body: draft,
     });
     const body = await response.json().catch(() => ({}));
@@ -790,8 +878,8 @@ function Policy({ token }: { token: string }) {
   );
 }
 
-function Health({ token }: { token: string }) {
-  const { data, error, loading } = useAdmin<Record<string, unknown>>(token, "/awall/health/checks");
+function Health() {
+  const { data, error, loading } = useAdmin<Record<string, unknown>>("/awall/health/checks");
   return (
     <section>
       <h1>Diagnóstico de Saúde</h1>

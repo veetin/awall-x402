@@ -52,12 +52,32 @@ export class GatewayConfigError extends Error {
 }
 
 /**
+ * Read a base URL that other URLs are appended to.
+ *
+ * The caller concatenates a path onto the result, so a trailing slash would
+ * produce a double separator. An empty or absent value falls back, because
+ * Compose turns an unexported variable into an empty string rather than
+ * leaving it unset.
+ *
+ * @param value - Raw environment value.
+ * @param fallback - Value to use when nothing usable is configured.
+ * @returns The base URL with no trailing slash.
+ */
+function baseUrl(value: string | undefined, fallback: string): string {
+  const trimmed = value?.trim();
+  const base = trimmed !== undefined && trimmed.length > 0 ? trimmed : fallback;
+  return base.replace(/\/+$/, "");
+}
+
+/**
  * Reader for variables whose fallback value only makes sense on testnet.
  *
- * On testnet it keeps the plain `??` fallback, so the demo still runs with no
- * configuration. On pubnet a blank or absent value is collected instead of
- * defaulted, and `assert` turns the whole set into one startup failure that
- * names every variable at once.
+ * On testnet it falls back, so the demo still runs with no configuration. A
+ * blank value counts as no configuration on both networks: Compose defines an
+ * unexported variable as an empty string rather than leaving it unset, so a
+ * `??` fallback would never fire under Compose. On pubnet a blank or absent
+ * value is collected instead of defaulted, and `assert` turns the whole set
+ * into one startup failure that names every variable at once.
  *
  * @param env - Environment being read.
  * @param network - Value of `STELLAR_NETWORK`.
@@ -75,8 +95,9 @@ function networkDefaults(
   return {
     read(name: string, testnetDefault: string, hint: string): string {
       const value = env[name];
-      if (!isPubnet) return value ?? testnetDefault;
-      if (value !== undefined && value.trim().length > 0) return value;
+      const configured = value !== undefined && value.trim().length > 0;
+      if (!isPubnet) return configured ? value : testnetDefault;
+      if (configured) return value;
       missing.push({ name, hint });
       return "";
     },
@@ -212,7 +233,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     payTo,
     facilitatorUrl,
     facilitatorTimeoutMs: Number(env["X402_FACILITATOR_TIMEOUT_MS"] ?? 10_000),
-    checkoutBaseUrl: env["AWALL_CHECKOUT_BASE_URL"] ?? "http://localhost:4179",
+    checkoutBaseUrl: baseUrl(env["AWALL_CHECKOUT_BASE_URL"], "http://localhost:4179"),
     publicBaseUrl: env["AWALL_PUBLIC_BASE_URL"] ?? `http://localhost:${port}`,
     trustProxy: env["AWALL_TRUST_PROXY"] === "1",
     databaseUrl: env["DATABASE_URL"] ?? "",

@@ -12,6 +12,9 @@
 	handle /pay/* {
 		reverse_proxy console:4179
 	}
+	handle /login {
+		reverse_proxy console:4179
+	}
 	handle /live* {
 		reverse_proxy console:4179
 	}
@@ -31,6 +34,17 @@
 		reverse_proxy console:4179
 	}
 	handle /health {
+		reverse_proxy console:4179
+	}
+	# The console is served from the root, and its bundle asks for
+	# /assets/* and /favicon.ico from the same origin.
+	handle /assets/* {
+		reverse_proxy console:4179
+	}
+	handle /favicon.ico {
+		reverse_proxy console:4179
+	}
+	handle / {
 		reverse_proxy console:4179
 	}
 	handle {

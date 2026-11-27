@@ -256,7 +256,7 @@ Monorepo com pnpm workspaces. TypeScript em tudo.
 
 | Peça | Escolha | Motivo |
 | --- | --- | --- |
-| Proxy | Hono (Node 22) | existe `@x402/hono` oficial; runtime enxuto |
+| Proxy | Hono (Node 24) | existe `@x402/hono` oficial; runtime enxuto |
 | Banco | Postgres (Neon) + Drizzle | ledger precisa de transação e lock de linha |
 | Console | Vite + React | dashboard do operador e checkout no mesmo deploy; escopo em `docs/08-dashboard.md` |
 | Cliente M2M | `@x402/fetch` + `@x402/stellar` | wrapper de fetch que resolve o 402 sozinho |
