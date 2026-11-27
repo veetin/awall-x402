@@ -21,7 +21,7 @@ creditar.
 
 O checkout mostra o QR Code do Pix desenhado a partir do próprio BR Code — nunca
 de uma imagem do provedor, que poderia divergir do código impresso logo abaixo —,
-um botão de copia-e-cola para esse código e um botão que copia os termos Stellar
+um botão de copia-e-cola para esse código e um botão que copia os termos cripto
 da offer para a carteira. O botão de copiar usa `navigator.clipboard` quando o
 contexto é seguro e cai num `textarea` escondido com `execCommand` quando não é,
 porque um checkout aberto por HTTP no celular não tem contexto seguro.
@@ -29,7 +29,7 @@ porque um checkout aberto por HTTP no celular não tem contexto seguro.
 A landing é uma segunda entrada do mesmo build (`landing.html`), em TypeScript
 sem React, com CSS próprio (`src/landing/landing.css`). Ela reproduz o protótipo
 técnico v35. O scroll é livre e a página tem: o hero, com uma simulação que o
-visitante comanda (enviar requisição, estourar a cota, pagar por Stellar ou Pix,
+visitante comanda (enviar requisição, estourar a cota, pagar por rede cripto ou Pix,
 ou rodar no automático); o manifesto; uma história de cena fixa, com quatro
 passos (dentro da cota, 402, dois trilhos, origin cega) e um indicador que
 acompanha o passo na tela; o protocolo, com o 402 linha por linha e abas por
@@ -49,7 +49,7 @@ EXEMPLO, e a cena da história é ilustrativa. O que é número de produto tem
 fonte: o preço da seção de abuso usa as mesmas fórmulas do gateway
 (`abuseMultiplier` e `applyMultiplier`, em `src/landing/sim.ts`), com dinheiro em
 `bigint`. Os valores da política padrão (cota de 100 créditos por minuto, pacote
-de 10.000 créditos a 0,50 USDC, 5,00 XLM ou R$ 2,90) estão copiados nesse
+de 10.000 créditos a 0,50 USDC, o equivalente em moeda nativa ou R$ 2,90) estão copiados nesse
 arquivo e nos textos da página, e precisam acompanhar o `awall.yaml` à mão. A
 landing não chama o gateway. O único dado de execução real é a liquidação
 linkada no fechamento (`1193d51b…`, na testnet).
@@ -57,19 +57,19 @@ linkada no fechamento (`1193d51b…`, na testnet).
 Os botões são pílulas do protótipo: o primário é branco com a seta em círculo, e o
 secundário tem contorno. Não há vidro nem luz que siga o ponteiro: a textura é
 uma grade com vinheta, e o brilho azul fica só atrás do fechamento. A landing
-não tem Solana: trilho que não roda não aparece na tela.
+não mostra a Solana: trilho que não roda não aparece na tela (o plano para a Solana está em `docs/05-roadmap.md`).
 
 **Identidade visual.** Console e checkout compartilham `src/theme.css` (cores,
 fontes e movimento) e a mesma linguagem: painéis de vidro, botões em pílula,
 barra de topo flutuante com as abas e linhas de varredura no fundo. Cada cor
-tem um significado só: verde é cota gratuita, âmbar é Stellar e azul é Pix, nas
+tem um significado só: verde é cota gratuita, âmbar é redes cripto e azul é Pix, nas
 colunas de receita, nos selos de trilho e nos painéis do checkout. Verde,
 laranja e vermelho nos selos de status (`allow_free`, `waiting`, `refunded`)
 indicam só estado.
 
 A landing **não** importa o `theme.css`: tem o CSS próprio do protótipo v35, com
-azul para a Stellar e verde-água para o Pix. É uma divergência conhecida: o console
-ainda segue o visual anterior, e a cor da Stellar e do Pix não é a mesma nas
+azul para as redes cripto e verde-água para o Pix. É uma divergência conhecida: o console
+ainda segue o visual anterior, e a cor das redes cripto e do Pix não é a mesma nas
 duas áreas. Alinhar as duas é uma decisão pendente.
 
 **Publicação da landing.** Ela pode ir sozinha para a Vercel, sem gateway.
@@ -77,7 +77,7 @@ O projeto usa `apps/console` como diretório raiz, e `apps/console/vercel.json`
 serve `landing.html` na raiz (`/`), mantém `/landing` e deixa o resto dar 404,
 sem fallback para o console: console e checkout dependem do gateway e não
 existem nesse deploy. Por isso os botões da landing apontam para o repositório
-e para a liquidação na Stellar, e não para `/login`. A variável de projeto
+e para a liquidação na testnet, e não para `/login`. A variável de projeto
 `ENABLE_EXPERIMENTAL_COREPACK=1` faz a Vercel usar o `pnpm` fixado em
 `packageManager`, e o Node do projeto precisa ser 24. Esse deploy não foi
 executado ainda: só o roteamento foi conferido, com um servidor estático local.
@@ -125,9 +125,9 @@ está consumindo o quê".
 
 - Requisições recuperadas: quantas teriam sido `429` e foram atendidas após
   pagamento. É a métrica central do projeto.
-- Receita por ativo: total em USDC, em XLM (ambos no trilho `exact`) e em BRL
+- Receita por ativo: total em USDC, em moeda nativa (ambos no trilho `exact`) e em BRL
   (Pix), com a contagem de liquidações. Cada ativo tem seu próprio total; somar
-  unidades atômicas de USDC com as de XLM daria um número sem significado, mesmo
+  unidades atômicas de USDC com as da moeda nativa daria um número sem significado, mesmo
   tendo os dois 7 decimais. `GET /awall/stats/summary` devolve `rail`, `asset` e
   o `code` legível (`USDC`, `XLM`, `BRL`) por linha.
 - Custo de infraestrutura coberto: estimativa de custo por crédito consumido

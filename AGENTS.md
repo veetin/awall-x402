@@ -8,7 +8,7 @@ escrever qualquer linha.
 AWall é um gateway reverse proxy que substitui `429 Too Many Requests` por
 `402 Payment Required` usando o protocolo x402. Acima da cota gratuita, o cliente
 recebe termos de pagamento legíveis por máquina, paga e continua. Dois trilhos no
-mesmo 402: `exact` em USDC na Stellar (agente autônomo) e um scheme `pix` próprio
+mesmo 402: `exact` em USDC em redes cripto, hoje na Stellar (agente autônomo) e um scheme `pix` próprio
 (agente assistido, humano no circuito).
 
 Entrega para o Hack Brasil 2026, trilha *Pagamentos e finanças*. Submissão fecha
@@ -106,7 +106,7 @@ validação ou de utilidades sem necessidade concreta.
 apps/gateway/      proxy, política, ledger, orquestração de pagamento (:8402)
 apps/console/      Vite + React: dashboard do operador e checkout público
 apps/origin-demo/  API protegida de exemplo
-apps/agent-m2m/    agente autônomo com carteira Stellar de testnet
+apps/agent-m2m/    agente autônomo com carteira de testnet (Stellar hoje)
 packages/policy/   parser do YAML, créditos, preço, multiplicador de abuso
 packages/ledger/   Postgres + Drizzle, ledger e idempotência
 packages/pix/      scheme pix: termos, adapter AbacatePay

@@ -40,7 +40,7 @@ permite atender dois perfis de cliente sem bifurcar a API.
 ### M2M — agente autônomo
 
 O agente tem carteira e autonomia financeira. Ele lê o header
-`PAYMENT-REQUIRED`, escolhe o item em USDC na Stellar, assina a autorização e
+`PAYMENT-REQUIRED`, escolhe o item em USDC numa rede cripto, assina a autorização e
 repete a requisição com o header `PAYMENT-SIGNATURE`. Latência de alguns segundos,
 sem intervenção humana, sem cadastro prévio, sem cartão — e sem precisar de token
 de gas, porque o facilitator patrocina a taxa.

@@ -2,7 +2,7 @@
 
 O agente autônomo da demonstração do AWall. Ele chama uma rota protegida pelo
 gateway em laço, toma `402 Payment Required` quando a cota gratuita acaba, lê os
-termos de pagamento, assina sozinho uma transferência de USDC na Stellar e
+termos de pagamento, assina sozinho uma transferência de USDC numa rede cripto e
 repete a requisição com o header `PAYMENT-SIGNATURE`. Nenhum humano no circuito.
 
 Também traz o script que prepara as contas de testnet, que é o passo de setup
