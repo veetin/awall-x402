@@ -1,4 +1,3 @@
-import "./landing.css";
 import { mountAbuse } from "./abuse";
 import { $, $$, trackVisible } from "./dom";
 import { Flow } from "./flow";
