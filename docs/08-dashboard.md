@@ -43,6 +43,11 @@ da prova (liquidação `1193d51b…`, réplicas 133 contra 278, contagem de test
 vêm do README e mudam junto com ele. Os rios do hero são WebGL2 desenhado como
 ASCII; sem WebGL2 o canvas some e o resto da página continua funcionando.
 
+A Solana aparece na tela dos trilhos só como "em breve", com marcador vazado e
+texto apagado, e não nos números do hero nem na prova: o gateway ainda não
+liquida nela, e nada na landing pode mostrar um trilho que não rodou. Quando a
+Solana for liquidada de verdade, ela entra nessas telas com o dado da execução.
+
 **Identidade visual.** Console, checkout e landing compartilham
 `src/theme.css` (cores, fontes e movimento) e a mesma linguagem: painéis de
 vidro, botões em pílula, barra de topo flutuante com as abas no console e linhas

@@ -1,6 +1,7 @@
 /* Tokens shared by the console and the landing page, so the two read as one
    product. Colour keeps one meaning per hue everywhere it appears:
-   green = free quota, amber = Stellar, blue = Pix. */
+   green = free quota, amber = Stellar, blue = Pix, violet = Solana (the next
+   rail: it is only drawn as "coming", never as a working one). */
 
 :root {
   color-scheme: dark;
@@ -14,6 +15,7 @@
   --free: #34d399;
   --stellar: #fbbf24;
   --pix: #38bdf8;
+  --solana: #a78bfa;
   --metal: linear-gradient(180deg, #f1f5f9 0%, #94a3b8 100%);
   --font: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;

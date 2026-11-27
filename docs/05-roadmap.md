@@ -59,6 +59,22 @@ consciente, não uma falha:
 Não cortáveis, porque são a tese do projeto: 402 em vez de 429, trilho M2M em
 stablecoin, trilho Pix para agente assistido, ledger com idempotência.
 
+## Registrado e fora do escopo desta submissão
+
+**Solana como segundo trilho `exact`.** Decidido em 27/11 não entrar antes de
+30/11; a landing a mostra só como "em breve". O que se sabe, para não refazer a
+pesquisa:
+
+- O facilitator `https://www.x402.org/facilitator/supported` já anuncia `exact`
+  em `solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1` (devnet) e paga a taxa
+  (`extra.feePayer`). Conferido em 27/11.
+- O pacote é `@x402/svm` (2.32.0), com `@solana/kit` como peer dependency.
+- USDC na Solana tem **6 decimais**, não 7: 0,50 USDC são `"500000"`. A regra 2 do
+  AGENTS.md hoje fala só de Stellar e precisa cobrir as duas redes.
+- Pede mudança de schema (a offer guarda um valor de USDC só, em 7 decimais),
+  gateway com várias redes no `accepts`, `/verify` e `/settle` por rede, e um
+  agente com carteira Solana. O USDC de devnet vem do faucet web da Circle.
+
 ## Testes mínimos
 
 - Unidade: cálculo de créditos por rota, token bucket, multiplicador de abuso,

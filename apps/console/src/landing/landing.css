@@ -864,6 +864,17 @@ input[type="range"]:active::-moz-range-thumb {
   box-shadow: 0 0 10px var(--pix);
 }
 
+/* A rail that is not built yet: a hollow marker and muted text, never the
+   lit dot a working rail gets. */
+.mini .soon {
+  color: var(--text-3);
+}
+
+.dot-solana {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--solana);
+}
+
 .mini-gauge {
   color: var(--text);
   display: flex;
