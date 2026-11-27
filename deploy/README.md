@@ -21,13 +21,29 @@ Then, on `http://localhost`:
 | --- | --- |
 | protected API | `curl -H "Authorization: Bearer k" "http://localhost/v1/search?q=x"` answers `200`, and `402` once the free quota is gone |
 | control plane | `curl http://localhost/awall/stats/summary` answers `401`; with `Authorization: Bearer local-token` it answers `200` |
+| console login | `http://localhost/login` asks for a username and a password |
 | checkout | `http://localhost/pay/<offerId>` serves the console |
 | persistence | an offer read with `GET /awall/offers/<id>` still answers `202` after `docker compose restart gateway` |
 
-Those four were run on this stack before this file was written. The gateway
+Those checks were run on this stack before this file was written. The gateway
 logs `"database":"postgres"` and `"origin":"http://origin:8787"` at boot, which
 is how you know it is not on PGlite and not pointed at the policy file's
 localhost.
+
+## First console user
+
+Nobody can sign in until a user exists. The gateway service already holds
+`DATABASE_URL`, so create it there:
+
+```bash
+cd deploy
+docker compose exec gateway pnpm --filter @awall/gateway create-user ada
+```
+
+It asks for the password on standard input and refuses to take one as an
+argument: an argument would land in the shell history and in the process list.
+`AWALL_ADMIN_TOKEN` keeps working for the `curl` checks above, which is why the
+examples in this file are unchanged.
 
 ## Public host with HTTPS
 
