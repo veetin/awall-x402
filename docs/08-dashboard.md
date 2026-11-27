@@ -90,8 +90,11 @@ implementação, e não passou pela troca para "redes cripto".
 **Publicação da landing.** Ela pode ir sozinha para a Vercel, sem gateway.
 O projeto usa `apps/console` como diretório raiz, e `apps/console/vercel.json`
 serve `landing.html` na raiz (`/`), mantém `/landing`, serve a documentação
-técnica em `/documentacao/` e deixa o resto dar 404,
-sem fallback para o console: console e checkout dependem do gateway e não
+técnica em `/documentacao/` e deixa o resto dar 404. O arquivo usa `routes`, e
+não `rewrites`, de propósito: o build também gera o `dist/index.html` do console,
+e um `rewrite` só roda depois de o arquivo ser procurado, então `/` abriria o
+console em vez da landing. As `routes` vêm antes do filesystem. Não há
+fallback para o console: console e checkout dependem do gateway e não
 existem nesse deploy. Por isso os botões da landing apontam para o repositório
 e para a liquidação na testnet, e não para `/login`. A variável de projeto
 `ENABLE_EXPERIMENTAL_COREPACK=1` faz a Vercel usar o `pnpm` fixado em
