@@ -54,6 +54,16 @@ if (!config.payTo) {
   log({ msg: "STELLAR_PAY_TO is empty: the exact rail will advertise an empty payTo" });
 }
 
+// The gateway appends /pay/<offerId> itself, so the variable is the console
+// origin, not the checkout page. Getting this wrong breaks every Pix link,
+// and the only visible symptom is a 404 on a URL the client already has.
+if (/\/pay$/.test(config.checkoutBaseUrl)) {
+  log({
+    msg: "AWALL_CHECKOUT_BASE_URL ends in /pay: checkout links will repeat it",
+    checkoutBaseUrl: config.checkoutBaseUrl,
+  });
+}
+
 const facilitator = new FacilitatorClient({
   baseUrl: config.facilitatorUrl,
   timeoutMs: config.facilitatorTimeoutMs,
